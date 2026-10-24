@@ -4,6 +4,7 @@ import { Layout } from './components/Layout'
 import { RequireAuth } from './components/Guards'
 import { LoginPage } from './pages/LoginPage'
 import { Spinner } from './components/ui'
+const BooksPage = lazy(() => import('./pages/BooksPage').then((m) => ({ default: m.BooksPage })))
 const AuthorsPage = lazy(() => import('./pages/AuthorsPage').then((m) => ({ default: m.AuthorsPage })))
 const CategoriesPage = lazy(() => import('./pages/CategoriesPage').then((m) => ({ default: m.CategoriesPage })))
 
@@ -14,6 +15,7 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route element={<RequireAuth />}>
         <Route element={<Layout />}>
+          <Route path="livros" element={<BooksPage />} />
           <Route path="autores" element={<AuthorsPage />} />
           <Route path="categorias" element={<CategoriesPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
