@@ -1,0 +1,8 @@
+import type { LoanDetails } from '../api/types'
+import { Badge } from './ui'
+
+export function LoanStatusBadge({ loan }: { loan: LoanDetails }) {
+  if (!loan.active) return <Badge color="#a89984">Devolvido</Badge>
+  if ((loan.daysLate ?? 0) > 0) return <Badge color="#fb4934">Atrasado · {loan.daysLate} d</Badge>
+  return <Badge color="#8ec07c">Em dia</Badge>
+}

@@ -9,6 +9,8 @@ const AuthorsPage = lazy(() => import('./pages/AuthorsPage').then((m) => ({ defa
 const CategoriesPage = lazy(() => import('./pages/CategoriesPage').then((m) => ({ default: m.CategoriesPage })))
 const ReadersPage = lazy(() => import('./pages/ReadersPage').then((m) => ({ default: m.ReadersPage })))
 const ReaderDetailPage = lazy(() => import('./pages/ReaderDetailPage').then((m) => ({ default: m.ReaderDetailPage })))
+const LoansPage = lazy(() => import('./pages/LoansPage').then((m) => ({ default: m.LoansPage })))
+const PenaltiesPage = lazy(() => import('./pages/PenaltiesPage').then((m) => ({ default: m.PenaltiesPage })))
 
 export function App() {
   return (
@@ -22,6 +24,8 @@ export function App() {
           <Route path="categorias" element={<CategoriesPage />} />
           <Route path="leitores" element={<ReadersPage />} />
           <Route path="leitores/:id" element={<ReaderDetailPage />} />
+          <Route path="emprestimos" element={<LoansPage />} />
+          <Route path="multas" element={<PenaltiesPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Route>
