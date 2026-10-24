@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 import { Layout } from './components/Layout'
-import { RequireAuth } from './components/Guards'
+import { RequireAdmin, RequireAuth } from './components/Guards'
 import { LoginPage } from './pages/LoginPage'
 import { Spinner } from './components/ui'
 const BooksPage = lazy(() => import('./pages/BooksPage').then((m) => ({ default: m.BooksPage })))
@@ -11,6 +11,8 @@ const ReadersPage = lazy(() => import('./pages/ReadersPage').then((m) => ({ defa
 const ReaderDetailPage = lazy(() => import('./pages/ReaderDetailPage').then((m) => ({ default: m.ReaderDetailPage })))
 const LoansPage = lazy(() => import('./pages/LoansPage').then((m) => ({ default: m.LoansPage })))
 const PenaltiesPage = lazy(() => import('./pages/PenaltiesPage').then((m) => ({ default: m.PenaltiesPage })))
+const UsersPage = lazy(() => import('./pages/UsersPage').then((m) => ({ default: m.UsersPage })))
+const ConfigurationPage = lazy(() => import('./pages/ConfigurationPage').then((m) => ({ default: m.ConfigurationPage })))
 
 export function App() {
   return (
@@ -26,6 +28,10 @@ export function App() {
           <Route path="leitores/:id" element={<ReaderDetailPage />} />
           <Route path="emprestimos" element={<LoansPage />} />
           <Route path="multas" element={<PenaltiesPage />} />
+          <Route element={<RequireAdmin />}>
+            <Route path="usuarios" element={<UsersPage />} />
+            <Route path="configuracao" element={<ConfigurationPage />} />
+          </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Route>
