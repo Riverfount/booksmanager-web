@@ -1,0 +1,50 @@
+@import 'tailwindcss';
+
+/* Tema Gruvbox (dark), os mesmos tokens do design. */
+@theme {
+  --color-bg0-h: #1d2021;
+  --color-bg0: #282828;
+  --color-bg0-s: #32302f;
+  --color-bg1: #3c3836;
+  --color-bg2: #504945;
+  --color-line: #665c54;
+  --color-line-strong: #928374;
+  --color-fg: #ebdbb2;
+  --color-fg2: #d5c4a1;
+  --color-fg3: #bdae93;
+  --color-muted: #a89984;
+  --color-yellow: #fabd2f;
+  --color-orange: #fe8019;
+  --color-green: #8ec07c;
+  --color-blue: #83a598;
+  --color-red: #fb4934;
+  --color-red-text: #ff8a7a;
+  --color-pink: #d3869b;
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+@layer base {
+  html, body, #root { min-height: 100%; }
+  body { @apply bg-bg0 text-fg font-sans; margin: 0; }
+  a { @apply text-blue hover:text-yellow; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible, a:focus-visible {
+    outline: 2px solid var(--color-yellow);
+    outline-offset: 2px;
+  }
+  button { cursor: pointer; }
+  button:disabled { cursor: not-allowed; opacity: 0.55; }
+}
+
+/* Listas em tabela: colunas no desktop, cartões empilhados no celular (até 900px). */
+.tbl { display: flex; flex-direction: column; }
+.thead { display: none; }
+.trow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 14px 0; border-bottom: 1px solid var(--color-bg1); font-size: 14px; }
+.trow > :first-child { flex: 1 0 100%; }
+.trow [data-label]::before { content: attr(data-label) ': '; color: var(--color-muted); font-size: 12px; }
+@media (min-width: 901px) {
+  .thead { display: grid; grid-template-columns: var(--cols); gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--color-bg2); color: var(--color-muted); font-size: 13px; font-family: var(--font-mono); }
+  .trow { display: grid; grid-template-columns: var(--cols); gap: 12px; padding: 12px 0; }
+  .trow > :first-child { flex: none; }
+  .trow [data-label]::before { content: none; }
+}
