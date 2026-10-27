@@ -14,6 +14,7 @@ import { resetPasswordSchema, userEditSchema, userSchema } from '../lib/schemas'
 import { useDebounced } from '../lib/useDebounced'
 
 type Values = z.infer<typeof userSchema>
+const roleLabel = { ADMIN: 'administrador', OPERATOR: 'operador', READER: 'leitor' } as const
 const empty: Values = { login: '', displayName: '', role: 'OPERATOR', password: '' }
 
 export function UsersPage() {
@@ -57,6 +58,8 @@ export function UsersPage() {
   })
 
   const startEdit = (u: User) => {
+    // Readers get access through the reader registration, not this form.
+    if (u.role === 'READER') return
     setDone(false)
     setEditing(u)
     reset({ login: u.login, displayName: u.displayName ?? '', role: u.role, password: '' })
@@ -80,7 +83,7 @@ export function UsersPage() {
                 rowKey={(u) => u.id}
                 columns={[
                   { header: 'Login', width: '1.5fr', cell: (u) => (<div className="flex flex-col"><span className="font-mono font-semibold">{u.login}</span>{u.displayName && <span className="text-xs text-muted">{u.displayName}</span>}</div>) },
-                  { header: 'Perfil', width: '1fr', cell: (u) => <Badge color={u.role === 'ADMIN' ? '#fe8019' : '#8ec07c'}>{u.role === 'ADMIN' ? 'administrador' : 'operador'}</Badge> },
+                  { header: 'Perfil', width: '1fr', cell: (u) => <Badge color={u.role === 'ADMIN' ? '#fe8019' : '#8ec07c'}>{roleLabel[u.role]}</Badge> },
                   { header: 'Situação', width: '1.5fr', cell: (u) => <span className="text-[13px] font-medium" style={{ color: !u.active ? '#a89984' : u.blocked ? '#fb4934' : '#8ec07c' }}>{!u.active ? 'Inativo' : u.blocked ? `Bloqueado até ${formatDateTime(u.blockedUntil)}` : 'Ativo'}</span> },
                   {
                     header: 'Ações',
