@@ -1,4 +1,4 @@
-import { authorSchema, bookSchema, configSchema, isbnValid, passwordChecks, readerSchema, userSchema } from './schemas'
+import { authorSchema, bookSchema, bookSchemaFor, configSchema, isbnValid, passwordChecks, readerSchema, userSchema } from './schemas'
 import { isMinor } from './dates'
 
 const msgs = (r: { success: boolean; error?: { issues: { message: string }[] } }) => (r.success ? [] : r.error!.issues.map((i) => i.message))
@@ -22,7 +22,7 @@ describe('autor', () => {
 })
 
 describe('livro', () => {
-  const ok = { isbn: '9788533302273', title: 'Dom Casmurro', publisher: '', year: '', categoryId: '1', authorIds: [1] }
+  const ok = { isbn: '9788533302273', title: 'Dom Casmurro', publisher: 'Garnier', year: '1899', categoryId: '1', authorIds: [1] }
   it('aceita o mínimo válido', () => expect(bookSchema.safeParse(ok).success).toBe(true))
   it('exige categoria e ao menos um autor', () => {
     const r = msgs(bookSchema.safeParse({ ...ok, categoryId: '', authorIds: [] }))
@@ -31,6 +31,24 @@ describe('livro', () => {
   })
   it('recusa ano futuro', () => {
     expect(bookSchema.safeParse({ ...ok, year: String(new Date().getFullYear() + 1) }).success).toBe(false)
+  })
+  it('exige editora e ano no cadastro', () => {
+    const r = msgs(bookSchema.safeParse({ ...ok, publisher: '  ', year: '' }))
+    expect(r).toContain('Informe a editora.')
+    expect(r).toContain('Informe o ano de publicação.')
+  })
+  it('limita a editora em 255 caracteres', () => {
+    expect(bookSchema.safeParse({ ...ok, publisher: 'x'.repeat(256) }).success).toBe(false)
+    expect(bookSchema.safeParse({ ...ok, publisher: 'x'.repeat(255) }).success).toBe(true)
+  })
+  it('aceita ano a partir de 1450', () => {
+    expect(bookSchema.safeParse({ ...ok, year: '1449' }).success).toBe(false)
+    expect(bookSchema.safeParse({ ...ok, year: '1450' }).success).toBe(true)
+  })
+  it('livro antigo sem editora ou ano continua editável', () => {
+    const legacy = bookSchemaFor({ publisher: true, year: true })
+    expect(legacy.safeParse({ ...ok, publisher: '', year: '' }).success).toBe(true)
+    expect(bookSchemaFor({ publisher: true }).safeParse({ ...ok, publisher: '', year: '' }).success).toBe(false)
   })
 })
 
@@ -72,7 +90,7 @@ describe('usuário e senha', () => {
 })
 
 describe('configuração', () => {
-  const ok = { penaltyPolicy: 'BOTH' as const, dailyFineAmount: '1.00', fineCap: '10.00', suspensionDaysPerDay: '1', suspensionCapDays: '365', loanPeriodDays: '14', loanLimit: '3', renewalLimit: '2', reservationPickupDays: '3' }
+  const ok = { penaltyPolicy: 'BOTH' as const, dailyFineAmount: '1.00', fineCap: '10.00', suspensionDaysPerDay: '1', suspensionCapDays: '365', loanPeriodDays: '14', loanLimit: '3', renewalLimit: '2', reservationPickupDays: '3', dueSoonNoticeDays: '2' }
   it('aceita os valores iniciais da política', () => expect(configSchema.safeParse(ok).success).toBe(true))
   it('teto não pode ficar abaixo da multa de um dia', () => {
     expect(configSchema.safeParse({ ...ok, dailyFineAmount: '5', fineCap: '2' }).success).toBe(false)
@@ -81,5 +99,10 @@ describe('configuração', () => {
     expect(configSchema.safeParse({ ...ok, loanPeriodDays: '0' }).success).toBe(false)
     expect(configSchema.safeParse({ ...ok, loanLimit: '2.5' }).success).toBe(false)
     expect(configSchema.safeParse({ ...ok, renewalLimit: '0' }).success).toBe(true)
+  })
+  it('aviso de vencimento: inteiro de pelo menos 1 dia', () => {
+    expect(configSchema.safeParse({ ...ok, dueSoonNoticeDays: '0' }).success).toBe(false)
+    expect(configSchema.safeParse({ ...ok, dueSoonNoticeDays: '' }).success).toBe(false)
+    expect(configSchema.safeParse({ ...ok, dueSoonNoticeDays: '1' }).success).toBe(true)
   })
 })

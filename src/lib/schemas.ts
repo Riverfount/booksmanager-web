@@ -53,24 +53,33 @@ const name = (max: number, what: string) =>
 export const authorSchema = z.object({ name: name(150, 'o nome do autor') })
 export const categorySchema = z.object({ name: name(100, 'o nome da categoria') })
 
-export const bookSchema = z.object({
-  isbn: z.string().superRefine((v, ctx) => {
-    const m = isbnMessage(v)
-    if (m) ctx.addIssue({ code: 'custom', message: m })
-  }),
-  title: name(255, 'o título do livro'),
-  publisher: z.string().trim(),
-  year: z
-    .string()
-    .trim()
-    .superRefine((v, ctx) => {
-      if (!v) return
-      if (Number(v) < 1000) ctx.addIssue({ code: 'custom', message: 'Informe o ano com 4 dígitos.' })
-      else if (Number(v) > new Date().getFullYear()) ctx.addIssue({ code: 'custom', message: 'O ano de publicação não pode ser futuro.' })
+/** Publisher and year are required (RF01); a book registered before that rule may still lack them, so edits can leave them empty. */
+export const bookSchemaFor = (optional: { publisher?: boolean; year?: boolean } = {}) =>
+  z.object({
+    isbn: z.string().superRefine((v, ctx) => {
+      const m = isbnMessage(v)
+      if (m) ctx.addIssue({ code: 'custom', message: m })
     }),
-  categoryId: z.string().min(1, 'Selecione a categoria do livro.'),
-  authorIds: z.array(z.number()).min(1, 'Selecione ao menos um autor.'),
-})
+    title: name(255, 'o título do livro'),
+    publisher: z
+      .string()
+      .trim()
+      .max(255, 'Use até 255 caracteres.')
+      .refine((v) => optional.publisher || v, 'Informe a editora.'),
+    year: z
+      .string()
+      .trim()
+      .superRefine((v, ctx) => {
+        if (!v) {
+          if (!optional.year) ctx.addIssue({ code: 'custom', message: 'Informe o ano de publicação.' })
+        } else if (Number(v) < 1450) ctx.addIssue({ code: 'custom', message: 'O ano de publicação deve ser 1450 ou posterior.' })
+        else if (Number(v) > new Date().getFullYear()) ctx.addIssue({ code: 'custom', message: 'O ano de publicação não pode ser futuro.' })
+      }),
+    categoryId: z.string().min(1, 'Selecione a categoria do livro.'),
+    authorIds: z.array(z.number()).min(1, 'Selecione ao menos um autor.'),
+  })
+
+export const bookSchema = bookSchemaFor()
 
 export const copySchema = z.object({ assetCode: name(50, 'o código de patrimônio') })
 
@@ -153,6 +162,7 @@ export const configSchema = z
     loanLimit: z.string(),
     renewalLimit: z.string(),
     reservationPickupDays: z.string(),
+    dueSoonNoticeDays: z.string(),
   })
   .superRefine((v, ctx) => {
     const num = (k: keyof typeof v) => Number(String(v[k]).replace(',', '.'))
@@ -175,4 +185,5 @@ export const configSchema = z
     whole('loanLimit', 1, 'Limite de empréstimos')
     whole('renewalLimit', 0, 'Limite de renovações')
     whole('reservationPickupDays', 1, 'Prazo de retirada de reservas')
+    whole('dueSoonNoticeDays', 1, 'Aviso de vencimento')
   })

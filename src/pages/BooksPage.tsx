@@ -11,7 +11,7 @@ import { Icon } from '../components/Icon'
 import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, ErrorSummary, FormCard, IconButton, PageHeader, Pagination, Pills, RequiredNote, SearchInput, SelectField, Spinner, TextField } from '../components/ui'
 import { errorItems, errorTitle, fid } from '../lib/form'
 import { maskIsbn, maskYear } from '../lib/masks'
-import { bookSchema, copySchema } from '../lib/schemas'
+import { bookSchema, bookSchemaFor, copySchema } from '../lib/schemas'
 import { useDebounced } from '../lib/useDebounced'
 
 type Values = z.infer<typeof bookSchema>
@@ -38,22 +38,22 @@ export function BooksPage() {
     queryFn: () => call(api.GET('/api/v1/categories', { params: { query: { size: 100, active: true } } })),
   })
 
-  const form = useForm<Values>({ resolver: zodResolver(bookSchema), defaultValues: empty })
+  const form = useForm<Values>({ resolver: zodResolver(editing ? bookSchemaFor({ publisher: !editing.publisher, year: !editing.publicationYear }) : bookSchema), defaultValues: empty })
   const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitted } } = form
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['books'] })
   const save = useMutation({
     mutationFn: (v: Values) => {
-      const publicationYear = v.year ? Number(v.year) : undefined
-      const publisher = v.publisher || undefined
       if (editing) {
+        const publicationYear = v.year ? Number(v.year) : undefined
+        const publisher = v.publisher || undefined
         return call(api.PATCH('/api/v1/books/{id}', {
           params: { path: { id: editing.id } },
           body: { title: v.title, publisher, publicationYear, categoryId: Number(v.categoryId), authorIds: v.authorIds },
         }))
       }
       return call(api.POST('/api/v1/books', {
-        body: { isbn: v.isbn.replace(/[\s-]/g, ''), title: v.title, publisher, publicationYear, categoryId: Number(v.categoryId), authorIds: v.authorIds },
+        body: { isbn: v.isbn.replace(/[\s-]/g, ''), title: v.title, publisher: v.publisher, publicationYear: Number(v.year), categoryId: Number(v.categoryId), authorIds: v.authorIds },
       }))
     },
     onSuccess: () => {
@@ -89,7 +89,7 @@ export function BooksPage() {
     setChosen(list)
     setValue('authorIds', list.map((a) => a.id), { shouldValidate: isSubmitted })
   }
-  const items = errorItems(errors, { isbn: 'ISBN', title: 'Título', year: 'Ano', categoryId: 'Categoria', authorIds: 'Autores' })
+  const items = errorItems(errors, { isbn: 'ISBN', title: 'Título', publisher: 'Editora', year: 'Ano', categoryId: 'Categoria', authorIds: 'Autores' })
   const isbnField = register('isbn', { onChange: (e) => setValue('isbn', maskIsbn(e.target.value)) })
   const yearField = register('year', { onChange: (e) => setValue('year', maskYear(e.target.value)) })
 
@@ -143,8 +143,8 @@ export function BooksPage() {
             <TextField id={fid('isbn')} label="ISBN" required mono readOnly={!!editing} autoComplete="off" placeholder="978-85-0000-000-0" hint={editing ? 'O ISBN não pode ser alterado.' : 'ISBN-10 ou ISBN-13. Não pode ser alterado depois do cadastro.'} error={errors.isbn?.message} {...isbnField} />
             <TextField id={fid('title')} label="Título" required maxLength={255} autoComplete="off" error={errors.title?.message} {...register('title')} />
             <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-3">
-              <TextField id={fid('publisher')} label="Editora" autoComplete="off" {...register('publisher')} />
-              <TextField id={fid('year')} label="Ano" inputMode="numeric" placeholder="1899" error={errors.year?.message} {...yearField} />
+              <TextField id={fid('publisher')} label="Editora" required maxLength={255} autoComplete="off" error={errors.publisher?.message} {...register('publisher')} />
+              <TextField id={fid('year')} label="Ano" required inputMode="numeric" placeholder="1899" error={errors.year?.message} {...yearField} />
             </div>
             <SelectField id={fid('categoryId')} label="Categoria" required error={errors.categoryId?.message} {...register('categoryId')}>
               <option value="">Selecione uma categoria</option>

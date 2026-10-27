@@ -21,6 +21,7 @@ const toValues = (c: LibraryConfiguration): Values => ({
   loanLimit: String(c.loanLimit),
   renewalLimit: String(c.renewalLimit),
   reservationPickupDays: String(c.reservationPickupDays),
+  dueSoonNoticeDays: String(c.dueSoonNoticeDays),
 })
 const dec = (s: string) => Number(s.replace(',', '.'))
 
@@ -46,6 +47,7 @@ export function ConfigurationPage() {
         loanLimit: Number(v.loanLimit),
         renewalLimit: Number(v.renewalLimit),
         reservationPickupDays: Number(v.reservationPickupDays),
+        dueSoonNoticeDays: Number(v.dueSoonNoticeDays),
       },
     })),
     onSuccess: (c) => {
@@ -58,7 +60,7 @@ export function ConfigurationPage() {
 
   const items = errorItems(errors, {
     dailyFineAmount: 'Multa por dia', fineCap: 'Teto da multa', suspensionDaysPerDay: 'Dias de suspensão por dia', suspensionCapDays: 'Teto da suspensão',
-    loanPeriodDays: 'Prazo de empréstimo', loanLimit: 'Limite de empréstimos', renewalLimit: 'Limite de renovações', reservationPickupDays: 'Prazo de retirada de reservas',
+    loanPeriodDays: 'Prazo de empréstimo', loanLimit: 'Limite de empréstimos', renewalLimit: 'Limite de renovações', reservationPickupDays: 'Prazo de retirada de reservas', dueSoonNoticeDays: 'Aviso de vencimento',
   })
 
   return (
@@ -98,6 +100,7 @@ export function ConfigurationPage() {
                 <TextField id={fid('loanLimit')} label="Empréstimos simultâneos por leitor" required inputMode="numeric" error={errors.loanLimit?.message} {...register('loanLimit')} />
                 <TextField id={fid('renewalLimit')} label="Renovações por empréstimo" required inputMode="numeric" error={errors.renewalLimit?.message} {...register('renewalLimit')} />
                 <TextField id={fid('reservationPickupDays')} label="Prazo de retirada de reservas (dias)" required inputMode="numeric" error={errors.reservationPickupDays?.message} {...register('reservationPickupDays')} />
+                <TextField id={fid('dueSoonNoticeDays')} label="Aviso de vencimento (dias antes)" required inputMode="numeric" hint="Antecedência do e-mail avisando que o empréstimo vai vencer." error={errors.dueSoonNoticeDays?.message} {...register('dueSoonNoticeDays')} />
               </div>
             </fieldset>
 
