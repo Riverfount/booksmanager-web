@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { z } from 'zod'
 import { api, call, errorMessage } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 import type { Book } from '../api/types'
 import { AuthorPicker, type AuthorChip } from '../components/AuthorPicker'
 import { CopyStatusBadge } from '../components/copyStatus'
@@ -11,8 +12,11 @@ import { Icon } from '../components/Icon'
 import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, ErrorSummary, FormCard, IconButton, PageHeader, Pagination, Pills, RequiredNote, SearchInput, SelectField, Spinner, TextField } from '../components/ui'
 import { errorItems, errorTitle, fid } from '../lib/form'
 import { maskIsbn, maskYear } from '../lib/masks'
-import { bookSchema, bookSchemaFor, copySchema } from '../lib/schemas'
+import { suggestionToForm } from '../lib/lookup'
+import { bookSchema, bookSchemaFor, copySchema, isbnValid } from '../lib/schemas'
 import { useDebounced } from '../lib/useDebounced'
+
+type LookupState = { kind: 'FOUND' | 'NOT_FOUND' | 'ALREADY_REGISTERED' | 'FAILED'; message: string; registeredBookId?: number; unknownAuthors: string[] }
 
 type Values = z.infer<typeof bookSchema>
 const empty: Values = { isbn: '', title: '', publisher: '', year: '', categoryId: '', authorIds: [] }
@@ -27,11 +31,20 @@ export function BooksPage() {
   const [selected, setSelected] = useState<Book | null>(null)
   const [removing, setRemoving] = useState<Book | null>(null)
   const [done, setDone] = useState(false)
+  const [authorFilter, setAuthorFilter] = useState('')
+  const [isbnFilter, setIsbnFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
+  const [lookup, setLookup] = useState<LookupState | null>(null)
+  const { isAdmin } = useAuth()
   const title = useDebounced(search.trim())
+  const author = useDebounced(authorFilter.trim())
+  const isbn = useDebounced(isbnFilter.trim())
 
   const books = useQuery({
-    queryKey: ['books', title, active, page],
-    queryFn: () => call(api.GET('/api/v1/books', { params: { query: { title: title || undefined, active: active === 'true', page } } })),
+    queryKey: ['books', title, author, isbn, categoryFilter, active, page],
+    queryFn: () => call(api.GET('/api/v1/books', {
+      params: { query: { title: title || undefined, author: author || undefined, isbn: isbn || undefined, categoryId: categoryFilter ? Number(categoryFilter) : undefined, active: active === 'true', page } },
+    })),
   })
   const categories = useQuery({
     queryKey: ['categories', 'all'],
@@ -60,9 +73,14 @@ export function BooksPage() {
       setDone(true)
       setEditing(null)
       setChosen([])
+      setLookup(null)
       reset(empty)
       void refresh()
     },
+  })
+  const reactivate = useMutation({
+    mutationFn: (id: number) => call(api.POST('/api/v1/books/{id}/reactivate', { params: { path: { id } } })),
+    onSuccess: () => void refresh(),
   })
   const inactivate = useMutation({
     mutationFn: (id: number) => call(api.DELETE('/api/v1/books/{id}', { params: { path: { id } } })),
@@ -76,12 +94,14 @@ export function BooksPage() {
   const startEdit = (b: Book) => {
     setDone(false)
     setEditing(b)
+    setLookup(null)
     setChosen(b.authors)
     reset({ isbn: b.isbn, title: b.title, publisher: b.publisher ?? '', year: b.publicationYear ? String(b.publicationYear) : '', categoryId: String(b.categoryId), authorIds: b.authors.map((a) => a.id) })
   }
   const cancel = () => {
     setEditing(null)
     setChosen([])
+    setLookup(null)
     setDone(false)
     reset(empty)
   }
@@ -89,8 +109,53 @@ export function BooksPage() {
     setChosen(list)
     setValue('authorIds', list.map((a) => a.id), { shouldValidate: isSubmitted })
   }
+  // Looks the ISBN up once it is valid and pre-fills only what the operator has not typed yet.
+  const lookupIsbn = async (raw: string) => {
+    const value = raw.replace(/[\s-]/g, '')
+    if (editing || !isbnValid(raw)) return
+    try {
+      const r = await qc.fetchQuery({
+        queryKey: ['lookup', value],
+        queryFn: () => call(api.GET('/api/v1/books/lookup', { params: { query: { isbn: value } } })),
+        staleTime: 5 * 60_000,
+      })
+      if (r.outcome === 'FOUND' && r.suggestion) {
+        const f = suggestionToForm(r.suggestion)
+        const current = form.getValues()
+        if (!current.title) setValue('title', f.values.title)
+        if (!current.publisher) setValue('publisher', f.values.publisher)
+        if (!current.year) setValue('year', f.values.year)
+        setAuthors([...chosen, ...f.known.filter((k) => !chosen.some((c) => c.id === k.id))])
+        setLookup({ kind: 'FOUND', message: r.message, unknownAuthors: f.unknown })
+      } else {
+        setLookup({ kind: r.outcome, message: r.message, registeredBookId: r.registeredBookId, unknownAuthors: [] })
+      }
+    } catch {
+      setLookup({ kind: 'FAILED', message: 'Não foi possível consultar o ISBN agora. Preencha os dados à mão.', unknownAuthors: [] })
+    }
+  }
+  const registerAuthor = useMutation({
+    mutationFn: (name: string) => call(api.POST('/api/v1/authors', { body: { name } })),
+    onSuccess: (a) => {
+      setAuthors([...chosen, { id: a.id, name: a.name }])
+      setLookup((l) => (l ? { ...l, unknownAuthors: l.unknownAuthors.filter((n) => n !== a.name) } : l))
+      void qc.invalidateQueries({ queryKey: ['authors'] })
+    },
+  })
+  const showRegistered = useMutation({
+    mutationFn: (id: number) => call(api.GET('/api/v1/books/{id}', { params: { path: { id } } })),
+    onSuccess: (b) => {
+      setSearch('')
+      setAuthorFilter('')
+      setCategoryFilter('')
+      setIsbnFilter(b.isbn)
+      setActive(b.active ? 'true' : 'false')
+      setPage(0)
+    },
+  })
+
   const items = errorItems(errors, { isbn: 'ISBN', title: 'Título', publisher: 'Editora', year: 'Ano', categoryId: 'Categoria', authorIds: 'Autores' })
-  const isbnField = register('isbn', { onChange: (e) => setValue('isbn', maskIsbn(e.target.value)) })
+  const isbnField = register('isbn', { onChange: (e) => setValue('isbn', maskIsbn(e.target.value)), onBlur: (e) => void lookupIsbn(e.target.value) })
   const yearField = register('year', { onChange: (e) => setValue('year', maskYear(e.target.value)) })
 
   return (
@@ -100,6 +165,16 @@ export function BooksPage() {
         <div className="flex min-w-0 flex-[2_1_560px] flex-col gap-6">
           <Card>
             <Pills value={active} onChange={(v) => { setActive(v); setPage(0) }} options={[{ value: 'true', label: 'Ativos' }, { value: 'false', label: 'Inativos' }]} />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <SearchInput label="Filtrar por autor" placeholder="Autor" value={authorFilter} onChange={(e) => { setAuthorFilter(e.target.value); setPage(0) }} />
+              <SearchInput label="Filtrar por ISBN" placeholder="ISBN" value={isbnFilter} onChange={(e) => { setIsbnFilter(e.target.value); setPage(0) }} />
+              <select aria-label="Filtrar por categoria" value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setPage(0) }} className="box-border h-11 w-full rounded-md border border-line bg-bg0-h px-3 text-[15px] text-fg">
+                <option value="">Todas as categorias</option>
+                {categories.data?.items.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            {reactivate.isError && <Banner kind="error">{errorMessage(reactivate.error)}</Banner>}
+            {showRegistered.isError && <Banner kind="error">{errorMessage(showRegistered.error)}</Banner>}
             {books.isPending && <Spinner />}
             {books.isError && <Banner kind="error">{errorMessage(books.error)}</Banner>}
             {books.data && books.data.items.length === 0 && <EmptyState>Nenhum livro encontrado.</EmptyState>}
@@ -117,12 +192,14 @@ export function BooksPage() {
                       header: 'Ações',
                       width: '1.2fr',
                       label: false,
-                      cell: (b) => b.active && (
+                      cell: (b) => b.active ? (
                         <div className="flex gap-1">
                           <IconButton label={`Ver exemplares de ${b.title}`} onClick={() => setSelected(b)}><Icon name="eye" size={18} /></IconButton>
                           <IconButton label={`Editar ${b.title}`} onClick={() => startEdit(b)}><Icon name="edit" size={18} /></IconButton>
                           <IconButton label={`Inativar ${b.title}`} onClick={() => setRemoving(b)} style={{ color: '#fe8019' }}><Icon name="ban" size={18} /></IconButton>
                         </div>
+                      ) : isAdmin && (
+                        <Button small disabled={reactivate.isPending} onClick={() => reactivate.mutate(b.id)}>Reativar<span className="sr-only"> {b.title}</span></Button>
                       ),
                     },
                   ]}
@@ -141,6 +218,26 @@ export function BooksPage() {
             {save.isError && <Banner kind="error">{errorMessage(save.error)}</Banner>}
             <ErrorSummary title={errorTitle(items.length, 'salvar o livro')} items={items} />
             <TextField id={fid('isbn')} label="ISBN" required mono readOnly={!!editing} autoComplete="off" placeholder="978-85-0000-000-0" hint={editing ? 'O ISBN não pode ser alterado.' : 'ISBN-10 ou ISBN-13. Não pode ser alterado depois do cadastro.'} error={errors.isbn?.message} {...isbnField} />
+            {lookup && (
+              <div className="flex flex-col gap-2">
+                <Banner kind={lookup.kind === 'FOUND' ? 'success' : 'info'}>{lookup.message}</Banner>
+                {lookup.kind === 'ALREADY_REGISTERED' && lookup.registeredBookId !== undefined && (
+                  <div><Button small disabled={showRegistered.isPending} onClick={() => showRegistered.mutate(lookup.registeredBookId!)}>Ver livro já cadastrado</Button></div>
+                )}
+                {lookup.unknownAuthors.length > 0 && (
+                  <div className="flex flex-col gap-1.5 text-sm text-fg2">
+                    <span>Autores sugeridos que ainda não estão no acervo:</span>
+                    {registerAuthor.isError && <Banner kind="error">{errorMessage(registerAuthor.error)}</Banner>}
+                    {lookup.unknownAuthors.map((n) => (
+                      <div key={n} className="flex flex-wrap items-center justify-between gap-2">
+                        <span>{n}</span>
+                        <Button small disabled={registerAuthor.isPending} onClick={() => registerAuthor.mutate(n)}>Cadastrar e selecionar<span className="sr-only"> {n}</span></Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <TextField id={fid('title')} label="Título" required maxLength={255} autoComplete="off" error={errors.title?.message} {...register('title')} />
             <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-3">
               <TextField id={fid('publisher')} label="Editora" required maxLength={255} autoComplete="off" error={errors.publisher?.message} {...register('publisher')} />
@@ -176,9 +273,11 @@ export function BooksPage() {
 function CopiesPanel({ book, onChanged, onClose }: { book: Book; onChanged: () => void; onClose: () => void }) {
   const qc = useQueryClient()
   const [added, setAdded] = useState(false)
+  const [showActive, setShowActive] = useState<'true' | 'false'>('true')
+  const { isAdmin } = useAuth()
   const copies = useQuery({
-    queryKey: ['copies', book.id],
-    queryFn: () => call(api.GET('/api/v1/copies', { params: { query: { bookId: book.id, size: 100 } } })),
+    queryKey: ['copies', book.id, showActive],
+    queryFn: () => call(api.GET('/api/v1/copies', { params: { query: { bookId: book.id, active: showActive === 'true', size: 100 } } })),
   })
   const form = useForm<z.infer<typeof copySchema>>({ resolver: zodResolver(copySchema), defaultValues: { assetCode: '' } })
   const { register, handleSubmit, reset, formState: { errors } } = form
@@ -198,7 +297,11 @@ function CopiesPanel({ book, onChanged, onClose }: { book: Book; onChanged: () =
     mutationFn: (id: number) => call(api.DELETE('/api/v1/copies/{id}', { params: { path: { id } } })),
     onSuccess: refresh,
   })
-  const error = add.error ?? changeStatus.error ?? inactivate.error
+  const reactivate = useMutation({
+    mutationFn: (id: number) => call(api.POST('/api/v1/copies/{id}/reactivate', { params: { path: { id } } })),
+    onSuccess: refresh,
+  })
+  const error = add.error ?? changeStatus.error ?? inactivate.error ?? reactivate.error
 
   return (
     <Card>
@@ -206,6 +309,7 @@ function CopiesPanel({ book, onChanged, onClose }: { book: Book; onChanged: () =
         <h2 className="m-0 text-lg font-semibold">Exemplares de “{book.title}”</h2>
         <Button small onClick={onClose}>Fechar</Button>
       </div>
+      <Pills value={showActive} onChange={setShowActive} options={[{ value: 'true', label: 'Ativos' }, { value: 'false', label: 'Inativos' }]} />
       {error && <Banner kind="error">{errorMessage(error)}</Banner>}
       {copies.isPending && <Spinner />}
       {copies.data && copies.data.items.length === 0 && <EmptyState>Nenhum exemplar cadastrado.</EmptyState>}
@@ -220,7 +324,9 @@ function CopiesPanel({ book, onChanged, onClose }: { book: Book; onChanged: () =
               header: 'Ações',
               width: '2.4fr',
               label: false,
-              cell: (c) => c.active && c.status !== 'BORROWED' && (
+              cell: (c) => !c.active ? isAdmin && (
+                <Button small disabled={reactivate.isPending} onClick={() => reactivate.mutate(c.id)}>Reativar<span className="sr-only"> {c.assetCode}</span></Button>
+              ) : c.status !== 'BORROWED' && (
                 <div className="flex flex-wrap gap-2">
                   {c.status === 'DAMAGED' && <Button small variant="ghost" onClick={() => changeStatus.mutate({ id: c.id, status: 'AVAILABLE' })}>Voltou a disponível</Button>}
                   {c.status !== 'DAMAGED' && c.status !== 'LOST' && <Button small variant="danger" onClick={() => changeStatus.mutate({ id: c.id, status: 'DAMAGED' })}>Danificado</Button>}
