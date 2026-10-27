@@ -7,7 +7,7 @@ import { Badge, Button } from './ui'
 export type ReaderChoice = { id: number; name: string }
 
 /** Reader by search: type the name, pick one of up to 5 results; the chosen reader shows with a "Trocar" button. */
-export function ReaderPicker({ id, value, onChange, error }: { id: string; value: ReaderChoice | null; onChange: (r: ReaderChoice | null) => void; error?: string }) {
+export function ReaderPicker({ id, value, onChange, error, label = 'Leitor', required = true, searchLabel = 'Buscar leitor pelo nome' }: { id: string; value: ReaderChoice | null; onChange: (r: ReaderChoice | null) => void; error?: string; label?: string; required?: boolean; searchLabel?: string }) {
   const [query, setQuery] = useState('')
   const q = useDebounced(query.trim())
   const readers = useQuery({
@@ -18,7 +18,7 @@ export function ReaderPicker({ id, value, onChange, error }: { id: string; value
 
   return (
     <fieldset id={id} className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
-      <legend className="mb-1.5 p-0 text-sm text-fg2">Leitor <span aria-hidden="true" className="text-orange">*</span></legend>
+      <legend className="mb-1.5 p-0 text-sm text-fg2">{label}{required && <span aria-hidden="true" className="text-orange"> *</span>}</legend>
       {value ? (
         <div className="flex items-center justify-between gap-2 rounded-md bg-bg2 px-3 py-2 text-sm">
           <span>{value.name}</span>
@@ -26,7 +26,7 @@ export function ReaderPicker({ id, value, onChange, error }: { id: string; value
         </div>
       ) : (
         <>
-          <input type="search" aria-label="Buscar leitor pelo nome" placeholder="Buscar leitor pelo nome" value={query} onChange={(e) => setQuery(e.target.value)} className={`box-border h-11 w-full rounded-md border bg-bg0-h px-3 text-[15px] text-fg ${error ? 'border-red' : 'border-line'}`} />
+          <input type="search" aria-label={searchLabel} placeholder={searchLabel} value={query} onChange={(e) => setQuery(e.target.value)} className={`box-border h-11 w-full rounded-md border bg-bg0-h px-3 text-[15px] text-fg ${error ? 'border-red' : 'border-line'}`} />
           {readers.data && readers.data.items.length === 0 && <span className="text-sm text-muted">Nenhum leitor encontrado.</span>}
           {readers.data && readers.data.items.length > 0 && (
             <div className="flex flex-col overflow-hidden rounded-md border border-line bg-bg0-h">

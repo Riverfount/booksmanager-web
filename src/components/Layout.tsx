@@ -12,6 +12,7 @@ const items: Item[] = [
   { to: '/categorias', label: 'Categorias', icon: 'tag' },
   { to: '/leitores', label: 'Leitores', icon: 'reader' },
   { to: '/emprestimos', label: 'Empréstimos', icon: 'loans' },
+  { to: '/reservas', label: 'Reservas', icon: 'bookmark' },
   { to: '/multas', label: 'Multas e suspensões', icon: 'fines' },
   { to: '/usuarios', label: 'Usuários', icon: 'users', admin: true },
   { to: '/configuracao', label: 'Configuração', icon: 'gear', admin: true },

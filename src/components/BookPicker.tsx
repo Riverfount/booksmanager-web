@@ -7,7 +7,7 @@ import { Badge, Button } from './ui'
 export type BookChoice = { id: number; title: string; availableCopies: number }
 
 /** Book by title search: up to 5 results with their availability; the chosen book shows with a "Trocar" button. */
-export function BookPicker({ id, label = 'Livro', value, onChange, error }: { id: string; label?: string; value: BookChoice | null; onChange: (b: BookChoice | null) => void; error?: string }) {
+export function BookPicker({ id, label = 'Livro', required = true, searchLabel = 'Buscar livro pelo título', value, onChange, error }: { id: string; label?: string; required?: boolean; searchLabel?: string; value: BookChoice | null; onChange: (b: BookChoice | null) => void; error?: string }) {
   const [query, setQuery] = useState('')
   const q = useDebounced(query.trim())
   const books = useQuery({
@@ -18,7 +18,7 @@ export function BookPicker({ id, label = 'Livro', value, onChange, error }: { id
 
   return (
     <fieldset id={id} className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
-      <legend className="mb-1.5 p-0 text-sm text-fg2">{label}</legend>
+      <legend className="mb-1.5 p-0 text-sm text-fg2">{label}{required && <span aria-hidden="true" className="text-orange"> *</span>}</legend>
       {value ? (
         <div className="flex items-center justify-between gap-2 rounded-md bg-bg2 px-3 py-2 text-sm">
           <span>{value.title}</span>
@@ -26,7 +26,7 @@ export function BookPicker({ id, label = 'Livro', value, onChange, error }: { id
         </div>
       ) : (
         <>
-          <input type="search" aria-label="Buscar livro pelo título" placeholder="Buscar livro pelo título" value={query} onChange={(e) => setQuery(e.target.value)} className={`box-border h-11 w-full rounded-md border bg-bg0-h px-3 text-[15px] text-fg ${error ? 'border-red' : 'border-line'}`} />
+          <input type="search" aria-label={searchLabel} placeholder={searchLabel} value={query} onChange={(e) => setQuery(e.target.value)} className={`box-border h-11 w-full rounded-md border bg-bg0-h px-3 text-[15px] text-fg ${error ? 'border-red' : 'border-line'}`} />
           {books.data && books.data.items.length === 0 && <span className="text-sm text-muted">Nenhum livro encontrado.</span>}
           {books.data && books.data.items.length > 0 && (
             <div className="flex flex-col overflow-hidden rounded-md border border-line bg-bg0-h">
