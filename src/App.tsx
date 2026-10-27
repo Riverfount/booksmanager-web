@@ -11,6 +11,7 @@ const CategoriesPage = lazy(() => import('./pages/CategoriesPage').then((m) => (
 const ReadersPage = lazy(() => import('./pages/ReadersPage').then((m) => ({ default: m.ReadersPage })))
 const ReaderDetailPage = lazy(() => import('./pages/ReaderDetailPage').then((m) => ({ default: m.ReaderDetailPage })))
 const LoansPage = lazy(() => import('./pages/LoansPage').then((m) => ({ default: m.LoansPage })))
+const ReservationsPage = lazy(() => import('./pages/ReservationsPage').then((m) => ({ default: m.ReservationsPage })))
 const PenaltiesPage = lazy(() => import('./pages/PenaltiesPage').then((m) => ({ default: m.PenaltiesPage })))
 const UsersPage = lazy(() => import('./pages/UsersPage').then((m) => ({ default: m.UsersPage })))
 const ConfigurationPage = lazy(() => import('./pages/ConfigurationPage').then((m) => ({ default: m.ConfigurationPage })))
@@ -29,6 +30,7 @@ export function App() {
           <Route path="leitores" element={<ReadersPage />} />
           <Route path="leitores/:id" element={<ReaderDetailPage />} />
           <Route path="emprestimos" element={<LoansPage />} />
+          <Route path="reservas" element={<ReservationsPage />} />
           <Route path="multas" element={<PenaltiesPage />} />
           <Route element={<RequireAdmin />}>
             <Route path="usuarios" element={<UsersPage />} />
