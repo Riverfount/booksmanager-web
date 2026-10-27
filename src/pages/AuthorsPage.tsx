@@ -13,9 +13,10 @@ export function AuthorsPage() {
       queryKey="authors"
       schema={authorSchema}
       list={({ name, active, page }) => call(api.GET('/api/v1/authors', { params: { query: { name, active, page } } }))}
-      create={(name) => call(api.POST('/api/v1/authors', { body: { name } }))}
-      update={(id, name) => call(api.PATCH('/api/v1/authors/{id}', { params: { path: { id } }, body: { name } }))}
+      create={(name, allowDuplicate) => call(api.POST('/api/v1/authors', { body: { name, allowDuplicate } }))}
+      update={(id, name, allowDuplicate) => call(api.PATCH('/api/v1/authors/{id}', { params: { path: { id } }, body: { name, allowDuplicate } }))}
       remove={(id) => call(api.DELETE('/api/v1/authors/{id}', { params: { path: { id } } }))}
+      reactivate={(id, allowDuplicate) => call(api.POST('/api/v1/authors/{id}/reactivate', { params: { path: { id } }, body: { allowDuplicate } }))}
     />
   )
 }

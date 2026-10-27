@@ -39,7 +39,8 @@ const authMiddleware: Middleware = {
   },
 }
 
-export const api = createClient<paths>({ baseUrl: API_URL })
+// Resolves `fetch` on each call (not once, at creation) so tests can replace it.
+export const api = createClient<paths>({ baseUrl: API_URL, fetch: (request) => globalThis.fetch(request) })
 api.use(authMiddleware)
 
 type Result<T> = { data?: T; error?: unknown; response: Response }
