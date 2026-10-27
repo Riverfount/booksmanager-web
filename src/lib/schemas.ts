@@ -122,12 +122,14 @@ const passwordField = z.string().superRefine((v, ctx) => {
   else if (!passwordChecks(v).every((c) => c.met)) ctx.addIssue({ code: 'custom', message: 'A senha não atende às regras abaixo.' })
 })
 
+const loginField = z
+  .string()
+  .min(1, 'Informe o login.')
+  .max(50, 'Use até 50 caracteres.')
+  .refine((v) => !/\s/.test(v), 'O login não pode ter espaços.')
+
 export const userSchema = z.object({
-  login: z
-    .string()
-    .min(1, 'Informe o login.')
-    .max(50, 'Use até 50 caracteres.')
-    .refine((v) => !/\s/.test(v), 'O login não pode ter espaços.'),
+  login: loginField,
   displayName: z.string().trim().max(100, 'Use até 100 caracteres.'),
   role: z.enum(['OPERATOR', 'ADMIN']),
   password: passwordField,
@@ -141,6 +143,19 @@ export const userEditSchema = z.object({
 })
 
 export const resetPasswordSchema = z.object({ password: passwordField })
+
+type WithConfirmation = { password: string; confirmPassword: string }
+const mustMatch = (v: WithConfirmation, ctx: z.RefinementCtx) => {
+  if (v.password !== v.confirmPassword) ctx.addIssue({ code: 'custom', path: ['confirmPassword'], message: 'As senhas não são iguais.' })
+}
+
+/** A reader chooses login and password from the invitation link. */
+export const acceptInvitationSchema = z.object({ login: loginField, password: passwordField, confirmPassword: z.string() }).superRefine(mustMatch)
+
+/** A reader sets a new password from the reset link. */
+export const newPasswordSchema = z.object({ password: passwordField, confirmPassword: z.string() }).superRefine(mustMatch)
+
+export const forgotPasswordSchema = z.object({ email: emailField })
 
 export const reasonSchema = z.object({
   reason: z.string().trim().min(1, 'Informe a justificativa.').max(500, 'Use até 500 caracteres.'),

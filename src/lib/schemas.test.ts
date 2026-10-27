@@ -1,4 +1,4 @@
-import { authorSchema, bookSchema, bookSchemaFor, configSchema, isbnValid, passwordChecks, readerSchema, userSchema } from './schemas'
+import { acceptInvitationSchema, authorSchema, forgotPasswordSchema, newPasswordSchema, bookSchema, bookSchemaFor, configSchema, isbnValid, passwordChecks, readerSchema, userSchema } from './schemas'
 import { isMinor } from './dates'
 
 const msgs = (r: { success: boolean; error?: { issues: { message: string }[] } }) => (r.success ? [] : r.error!.issues.map((i) => i.message))
@@ -104,5 +104,30 @@ describe('configuração', () => {
     expect(configSchema.safeParse({ ...ok, dueSoonNoticeDays: '0' }).success).toBe(false)
     expect(configSchema.safeParse({ ...ok, dueSoonNoticeDays: '' }).success).toBe(false)
     expect(configSchema.safeParse({ ...ok, dueSoonNoticeDays: '1' }).success).toBe(true)
+  })
+})
+
+describe('acesso do leitor', () => {
+  const strong = 'Abcdef1!'
+  it('convite: login sem espaços, senha forte e confirmação igual', () => {
+    const ok = { login: 'ana.leitora', password: strong, confirmPassword: strong }
+    expect(acceptInvitationSchema.safeParse(ok).success).toBe(true)
+    expect(msgs(acceptInvitationSchema.safeParse({ ...ok, login: '' }))).toContain('Informe o login.')
+    expect(msgs(acceptInvitationSchema.safeParse({ ...ok, login: 'ana leitora' }))).toContain('O login não pode ter espaços.')
+    expect(acceptInvitationSchema.safeParse({ ...ok, login: 'x'.repeat(51) }).success).toBe(false)
+    expect(msgs(acceptInvitationSchema.safeParse({ ...ok, password: 'fraca' }))).toContain('A senha não atende às regras abaixo.')
+    expect(msgs(acceptInvitationSchema.safeParse({ ...ok, confirmPassword: 'Outra123!' }))).toContain('As senhas não são iguais.')
+  })
+
+  it('nova senha: política e confirmação', () => {
+    expect(newPasswordSchema.safeParse({ password: strong, confirmPassword: strong }).success).toBe(true)
+    expect(msgs(newPasswordSchema.safeParse({ password: '', confirmPassword: '' }))).toContain('Informe a senha.')
+    expect(msgs(newPasswordSchema.safeParse({ password: strong, confirmPassword: '' }))).toContain('As senhas não são iguais.')
+  })
+
+  it('esqueci a senha: e-mail válido', () => {
+    expect(forgotPasswordSchema.safeParse({ email: 'ana@exemplo.com' }).success).toBe(true)
+    expect(forgotPasswordSchema.safeParse({ email: 'ana@' }).success).toBe(false)
+    expect(msgs(forgotPasswordSchema.safeParse({ email: '' }))[0]).toBeTruthy()
   })
 })

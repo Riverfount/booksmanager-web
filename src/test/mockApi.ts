@@ -13,7 +13,9 @@ export function mockApi(routes: Record<string, Handler>) {
     const key = `${req.method} ${url.pathname}`
     calls.push({ key, body, url })
     const out = routes[key]?.({ url, method: req.method, body }) ?? { json: page() }
-    return new Response(JSON.stringify(out.json ?? null), { status: out.status ?? 200, headers: { 'Content-Type': 'application/json' } })
+    const status = out.status ?? 200
+    const noBody = status === 204 || status === 205
+    return new Response(noBody ? null : JSON.stringify(out.json ?? null), { status, headers: noBody ? undefined : { 'Content-Type': 'application/json' } })
   })
   return calls
 }

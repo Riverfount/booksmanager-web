@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
 import { api, call, errorMessage } from '../api/client'
 import { FinesList, SuspensionsList } from '../components/Penalties'
 import { LoanStatusBadge } from '../components/loanStatus'
-import { Badge, Banner, Card, DataTable, EmptyState, PageHeader, Spinner } from '../components/ui'
-import { formatDate } from '../lib/dates'
+import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, PageHeader, Spinner } from '../components/ui'
+import { formatDate, formatDateTime } from '../lib/dates'
 
 export function ReaderDetailPage() {
   const id = Number(useParams().id)
@@ -32,6 +33,7 @@ export function ReaderDetailPage() {
           </dl>
         </Card>
       )}
+      {r && <AccessCard readerId={id} email={r.email} active={r.active} />}
       <Card>
         <h2 className="m-0 text-lg font-semibold">Empréstimos</h2>
         {loans.isPending && <Spinner />}
@@ -52,6 +54,44 @@ export function ReaderDetailPage() {
       <Card><h2 className="m-0 text-lg font-semibold">Multas</h2><FinesList readerId={id} /></Card>
       <Card><h2 className="m-0 text-lg font-semibold">Suspensões</h2><SuspensionsList readerId={id} /></Card>
     </>
+  )
+}
+
+/** Invites the reader to get a login (a one-time link by e-mail) or revokes the access. The API does not tell whether the reader already has access, so both actions stay available and the API refuses what does not apply. */
+function AccessCard({ readerId, email, active }: { readerId: number; email: string; active: boolean }) {
+  const [message, setMessage] = useState('')
+  const [revoking, setRevoking] = useState(false)
+  const invite = useMutation({
+    mutationFn: () => call(api.POST('/api/v1/readers/{id}/access-invitations', { params: { path: { id: readerId } } })),
+    onSuccess: (r) => setMessage(`Convite enviado para ${email}. O link vale até ${formatDateTime(r.expiresAt)}.`),
+  })
+  const revoke = useMutation({
+    mutationFn: () => call(api.DELETE('/api/v1/readers/{id}/access', { params: { path: { id: readerId } } })),
+    onSuccess: () => { setRevoking(false); setMessage('Acesso revogado. Os links pendentes deixaram de valer; o leitor pode ser convidado de novo.') },
+  })
+
+  return (
+    <Card>
+      <h2 className="m-0 text-lg font-semibold">Acesso ao sistema</h2>
+      <p className="m-0 text-sm text-fg2">O convite chega por e-mail, com um link de uso único para o leitor escolher o login e a senha. Um novo convite substitui o anterior.</p>
+      {message && <Banner kind="success">{message}</Banner>}
+      {invite.isError && <Banner kind="error">{errorMessage(invite.error)}</Banner>}
+      <div className="flex flex-wrap gap-3">
+        <Button variant="primary" disabled={!active || invite.isPending} onClick={() => { setMessage(''); invite.mutate() }}>Convidar para acessar o sistema</Button>
+        <Button variant="danger" onClick={() => { setMessage(''); setRevoking(true) }}>Revogar acesso</Button>
+      </div>
+      {!active && <span className="text-xs text-muted">Leitor inativo não recebe convite.</span>}
+      {revoking && (
+        <Dialog title="Revogar acesso" onClose={() => setRevoking(false)}>
+          <p className="m-0 text-sm text-fg2">O leitor deixa de entrar no sistema e os links pendentes (convite e redefinição de senha) param de valer. O cadastro continua, e ele pode ser convidado de novo. Uma sessão já aberta vale até expirar, em no máximo 15 minutos.</p>
+          {revoke.isError && <Banner kind="error">{errorMessage(revoke.error)}</Banner>}
+          <div className="flex justify-end gap-3">
+            <Button onClick={() => setRevoking(false)}>Voltar</Button>
+            <Button variant="danger" disabled={revoke.isPending} onClick={() => revoke.mutate()}>Revogar acesso</Button>
+          </div>
+        </Dialog>
+      )}
+    </Card>
   )
 }
 
