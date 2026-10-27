@@ -79,3 +79,7 @@ src/
 - Os selects de categoria carregam até 100 itens (limite de página da API).
 - Não há tela de reservas nem de redefinição de senha pelo próprio usuário (o backend ainda não expõe os endpoints).
 - O ideal é revisar as telas contra o contrato real depois de rodar `npm run api:types`.
+
+## Licença
+
+Distribuído sob a licença GNU General Public License, versão 3 ou posterior (GPL-3.0-or-later). O texto completo está em [`LICENSE`](LICENSE).
