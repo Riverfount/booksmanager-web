@@ -44,15 +44,18 @@ O backend precisa estar no ar (`./mvnw spring-boot:run` com o Docker Compose do 
 | Rota | Tela | Perfil |
 | --- | --- | --- |
 | `/login` | Entrar | público |
+| `/convite` · `/esqueci-senha` · `/redefinir-senha` | Leitor cria o acesso com o link do convite, pede e usa o link de redefinição de senha | público |
 | `/` | Painel (números e acervo por categoria, de `reports/dashboard`) | todos |
 | `/livros` | Livros e exemplares (busca de autores por texto, status dos exemplares) | todos |
 | `/autores` · `/categorias` | Cadastro, edição e inativação | todos |
-| `/leitores` · `/leitores/:id` | Leitores (responsável obrigatório para menores de 18) e detalhe com empréstimos, multas e suspensões | todos |
+| `/leitores` · `/leitores/:id` | Leitores (responsável obrigatório para menores de 18) e detalhe com empréstimos, multas, suspensões e o acesso ao sistema (convidar e revogar) | todos |
 | `/emprestimos` | Em aberto, atrasados e devolvidos; registrar, renovar e devolver (com a condição do exemplar) | todos |
 | `/reservas` | Reservas por situação, leitor e livro (fila em ordem de chegada); reservar livro sem exemplar disponível e cancelar | todos |
 | `/multas` | Multas (pagar, abonar com justificativa) e suspensões (encerrar antes do prazo) | todos |
 | `/usuarios` | Usuários, perfil, bloqueio, redefinição de senha | ADMIN |
 | `/configuracao` | Política de penalidade (multa, suspensão, ambas ou nenhuma), prazos e limites | ADMIN |
+
+Os links dos e-mails de convite e de redefinição abrem `/convite?token=…` e `/redefinir-senha?token=…`. O backend monta esses endereços (`APP_READER_ACCESS_INVITATION_URL` e `APP_READER_ACCESS_PASSWORD_RESET_URL`); em produção, aponte-os para o domínio do front.
 
 ## Formulários e validação
 
@@ -78,7 +81,7 @@ src/
 ## Limitações conhecidas
 
 - Os selects de categoria carregam até 100 itens (limite de página da API).
-- Ainda não há telas de convite de acesso e redefinição de senha do leitor, relatórios, auditoria nem o portal do leitor (`/me/*`), embora o backend já exponha os endpoints.
+- Ainda não há telas de relatórios, auditoria nem o portal do leitor (`/me/*`), embora o backend já exponha os endpoints.
 - O ideal é revisar as telas contra o contrato real depois de rodar `npm run api:types`.
 
 ## Licença
