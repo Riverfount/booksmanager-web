@@ -33,7 +33,7 @@ export interface paths {
         };
         /**
          * Listar usuários
-         * @description Lista os usuários do sistema de forma paginada (máximo de 100 por página), só para administrador, com filtro opcional por trecho do login (sem diferenciar maiúsculas). Por padrão, só os ativos e em ordem de login. Cada item mostra o perfil e se o usuário está bloqueado agora por tentativas de login; nunca a senha nem o hash.
+         * @description Lista os usuários do sistema de forma paginada (máximo de 100 por página), só para administrador, com filtro opcional por trecho do login (sem diferenciar maiúsculas) e por perfil. Sem o perfil, só os usuários que operam o sistema (ADMIN e OPERATOR): os acessos dos leitores são geridos pelo cadastro do leitor e aparecem com role=READER. Por padrão, só os ativos e em ordem de login. Cada item mostra o perfil e se o usuário está bloqueado agora por tentativas de login; nunca a senha nem o hash.
          */
         get: operations["list"];
         put?: never;
@@ -88,6 +88,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar reservas
+         * @description Lista as reservas de forma paginada (máximo de 100 por página), por leitor, por livro e por situação: `ACTIVE`, `FULFILLED` (retirada), `CANCELLED` ou `EXPIRED`. Sem filtro de situação, vêm todas, inclusive as encerradas. Filtrar por livro e `status=ACTIVE` mostra a fila do livro. Por padrão, da mais recente para a mais antiga. Cada item traz o nome do leitor, o título do livro, o lugar na fila (só para a reserva que espera exemplar, na ordem de chegada) e, para a que segura um exemplar, o código de patrimônio e o prazo de retirada.
+         */
+        get: operations["list_1"];
+        put?: never;
+        /**
+         * Reservar livro
+         * @description Reserva um livro que não tem exemplar disponível para um leitor (RF16): a reserva entra no fim da fila do livro, e a resposta traz o lugar na fila. A data da reserva é hoje: nenhuma data é aceita no corpo. Só reserva quem poderia emprestar, exceto pela disponibilidade e pelo limite de empréstimos: leitor ativo e não bloqueado, sem multa pendente, sem suspensão em vigor e sem empréstimo em atraso. O livro não pode ter exemplar disponível (é caso de emprestar), nem já estar emprestado ao leitor ou reservado por ele. O total de reservas ativas do leitor tem como limite o de empréstimos da configuração, contado à parte dos empréstimos.
+         */
+        post: operations["reserve"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reservations/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancelar reserva
+         * @description Cancela a reserva (RF17), sem corpo e sem justificativa; o leitor não acessa o sistema, então o cancelamento é feito pelo operador ou pelo administrador, em nome dele. Vale para a reserva que espera na fila e para a que guarda um exemplar. Se guardava um exemplar, ele passa ao próximo da fila (a resposta traz a reserva atendida) ou volta a disponível, se ninguém espera (RF18). Tudo ou nada: se qualquer passo falhar, nada é gravado.
+         */
+        post: operations["cancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/readers": {
         parameters: {
             query?: never;
@@ -99,7 +143,7 @@ export interface paths {
          * Listar leitores
          * @description Lista os leitores de forma paginada (máximo de 100 por página). O nome casa por trecho, sem diferenciar maiúsculas, e o documento por igualdade, depois de normalizado. Por padrão, só os ativos e em ordem de nome. Cada item traz o documento mascarado e não traz a data de nascimento nem o responsável; a consulta por id devolve tudo.
          */
-        get: operations["list_1"];
+        get: operations["list_2"];
         put?: never;
         /**
          * Cadastrar leitor
@@ -152,6 +196,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/readers/{id}/access-invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convidar o leitor para acessar o sistema
+         * @description Envia ao e-mail do leitor um link de uso único para ele escolher o login e a senha (válido por 72 horas, configurável). Um novo convite substitui o anterior que ainda estava pendente. A resposta diz até quando o link vale e nunca traz o token. Para ADMIN e OPERATOR. O envio do e-mail é feito depois da gravação e uma falha dele não desfaz o convite. Leitor inexistente devolve 404; leitor inativo ou que já tem acesso devolve 422.
+         */
+        post: operations["invite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar as minhas reservas
+         * @description Lista as reservas do leitor logado, paginadas (máximo de 100 por página), da mais recente para a mais antiga por padrão, com o filtro opcional `status` (`ACTIVE`, `FULFILLED`, `CANCELLED` ou `EXPIRED`); sem ele, vêm todas, inclusive as encerradas. Cada item traz o lugar na fila (só para a que espera exemplar) e o prazo de retirada (só para a que tem exemplar guardado). Nunca traz reserva de outro leitor. Só para o perfil de leitor.
+         */
+        get: operations["list_3"];
+        put?: never;
+        /**
+         * Reservar um livro
+         * @description Reserva, para o leitor logado, um livro que não tem exemplar disponível (RF16): a reserva entra no fim da fila do livro e a resposta traz o lugar na fila. O leitor é o do token; um `readerId` no corpo é ignorado. A data é hoje. Valem as regras da reserva no balcão: leitor ativo e não bloqueado, sem multa pendente, sem suspensão em vigor e sem empréstimo em atraso; o livro não pode ter exemplar disponível, nem já estar emprestado ao leitor ou reservado por ele; o total de reservas ativas respeita o limite da configuração. Só para o perfil de leitor.
+         */
+        post: operations["reserve_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/reservations/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancelar uma reserva minha
+         * @description Cancela a reserva do leitor logado (RF17), sem corpo e sem justificativa, tanto a que espera na fila quanto a que guarda um exemplar. Um exemplar que ela guardava passa ao próximo da fila ou volta a disponível (RF18), mas a resposta traz só a reserva cancelada, nunca a de quem recebeu o exemplar. Reserva de outro leitor devolve 404, igual a uma que não existe, antes de qualquer outra verificação. Só para o perfil de leitor.
+         */
+        post: operations["cancel_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/loans/{id}/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Renovar um empréstimo meu
+         * @description Renova o empréstimo do leitor logado (RF13): a data prevista de devolução avança o prazo da configuração, contado a partir da data prevista atual, e a renovação é contada. Sem corpo: nenhuma data é aceita. Valem as regras do balcão (RN07, RN09): não renova empréstimo encerrado, em atraso, de livro inativo, com o limite de renovações atingido ou com outro leitor esperando o livro na fila de reservas. O leitor bloqueado, suspenso ou com multa pendente também não renova (RN21), embora entre e consulte normalmente. Empréstimo de outro leitor devolve 404, igual a um que não existe, antes de qualquer outra verificação. Só para o perfil de leitor.
+         */
+        post: operations["renew"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/loans": {
         parameters: {
             query?: never;
@@ -163,11 +291,11 @@ export interface paths {
          * Listar empréstimos
          * @description Lista os empréstimos de forma paginada (máximo de 100 por página), por leitor, por exemplar e por situação: `ACTIVE` (ainda não devolvidos) ou `RETURNED` (encerrados, o histórico). Sem filtro de situação, vêm todos. Com `overdue=true` vêm só os atrasados (ativos com a data prevista anterior a hoje, como no relatório de atrasos), o que serve à aba "Atrasados". Por padrão, do mais recente para o mais antigo. Cada item traz o nome do leitor, o código de patrimônio do exemplar e o título do livro, as datas de retirada, prevista e de devolução, os dias de atraso (do empréstimo devolvido ou do ativo atrasado) e, para o empréstimo devolvido, a multa e a suspensão geradas, quando houver.
          */
-        get: operations["list_2"];
+        get: operations["list_4"];
         put?: never;
         /**
          * Registrar empréstimo
-         * @description Empresta um exemplar a um leitor (HU07). A retirada é hoje e a data prevista de devolução vem do prazo da configuração da biblioteca: nenhuma data é aceita no corpo. O exemplar passa a emprestado na mesma operação; se qualquer passo falhar, nada é gravado.
+         * @description Empresta um exemplar a um leitor (HU07). A retirada é hoje e a data prevista de devolução vem do prazo da configuração da biblioteca: nenhuma data é aceita no corpo. O exemplar passa a emprestado na mesma operação; se qualquer passo falhar, nada é gravado. Um exemplar guardado para uma reserva (`RESERVED`) só pode ser retirado pelo leitor dono da reserva, até o último dia do prazo de retirada (inclusive): então o exemplar passa a emprestado e a reserva a retirada (`FULFILLED`), na mesma operação. As demais regras (limite, multa, suspensão, atraso, leitor) continuam valendo para o dono.
          */
         post: operations["register_1"];
         delete?: never;
@@ -209,7 +337,7 @@ export interface paths {
          * Renovar empréstimo
          * @description Renova um empréstimo ativo (HU09): a data prevista de devolução avança o prazo da configuração da biblioteca, contado a partir da data prevista atual, e a renovação é contada. O limite de renovações por empréstimo também vem da configuração. Não renova empréstimo encerrado, em atraso ou que já usou todas as renovações. Sem corpo.
          */
-        post: operations["renew"];
+        post: operations["renew_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -267,13 +395,33 @@ export interface paths {
          * Listar exemplares
          * @description Lista os exemplares de forma paginada (máximo de 100 por página), com filtros opcionais por livro, por status e por código de patrimônio (o código inteiro, sem diferenciar maiúsculas; vem vazio se não existir). Por padrão, só os ativos e em ordem de código de patrimônio. Tamanho de página acima de 100 é rejeitado com 400, não ajustado.
          */
-        get: operations["list_3"];
+        get: operations["list_5"];
         put?: never;
         /**
          * Cadastrar exemplar
          * @description Cadastra um novo exemplar de um livro já cadastrado e ativo.
          */
         post: operations["register_2"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/copies/{id}/reactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reativar exemplar
+         * @description Reativa um exemplar inativado (RN14), só para o administrador, mantendo o status que ele tinha. Só é possível se o livro do exemplar está ativo (422 se não). Reativar um exemplar já ativo não tem efeito e devolve o exemplar.
+         */
+        post: operations["reactivate"];
         delete?: never;
         options?: never;
         head?: never;
@@ -291,13 +439,33 @@ export interface paths {
          * Listar categorias
          * @description Lista as categorias de forma paginada (máximo de 100 por página), com filtro opcional por nome. Por padrão, só as ativas e em ordem de nome.
          */
-        get: operations["list_4"];
+        get: operations["list_6"];
         put?: never;
         /**
          * Cadastrar categoria
          * @description Cadastra uma nova categoria do acervo.
          */
         post: operations["register_3"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/categories/{id}/reactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reativar categoria
+         * @description Reativa uma categoria inativada (RN14), só para o administrador. Reativar uma categoria já ativa não tem efeito e devolve a categoria.
+         */
+        post: operations["reactivate_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -313,15 +481,35 @@ export interface paths {
         };
         /**
          * Listar e pesquisar livros
-         * @description Lista os livros de forma paginada (máximo de 100 por página). Por padrão, só os ativos e em ordem de título. Os filtros `title`, `author` e `isbn` casam por trecho, sem diferenciar maiúsculas (no ISBN, hífens e espaços são ignorados), a `categoryId` casa pelo id, e os filtros informados valem em conjunto (RF05). Cada livro traz `availableCopies`, a quantidade de exemplares ativos e disponíveis. Tamanho de página acima de 100 é rejeitado com 400.
+         * @description Lista os livros de forma paginada (máximo de 100 por página). Por padrão, só os ativos e em ordem de título. Os filtros `title`, `author` e `isbn` casam por trecho, sem diferenciar maiúsculas (o título e o autor também ignoram acentos: `jose` acha `José`; no ISBN, hífens e espaços são ignorados, e o ISBN é o ISBN-13 guardado), a `categoryId` casa pelo id, e os filtros informados valem em conjunto (RF05). Cada livro traz `availableCopies`, a quantidade de exemplares ativos e disponíveis. Tamanho de página acima de 100 é rejeitado com 400.
          */
-        get: operations["list_5"];
+        get: operations["list_7"];
         put?: never;
         /**
          * Cadastrar livro
-         * @description Cadastra um novo livro. A categoria e os autores informados precisam existir e estar ativos.
+         * @description Cadastra um novo livro. A categoria e os autores informados precisam existir e estar ativos. O ISBN-10 é guardado como o ISBN-13 do mesmo livro (a resposta traz o ISBN-13), então cadastrar um livro pelo ISBN-10 e outra vez pelo ISBN-13 é recusado como duplicado (RN01). A editora (até 255 caracteres) e o ano de publicação (de 1450 até o ano atual) são obrigatórios (RF01).
          */
         post: operations["register_4"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/books/{id}/reactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reativar livro
+         * @description Reativa um livro inativado (RN14), só para o administrador. O livro só volta se a categoria e todos os autores dele estão ativos; a recusa (422) diz quais estão inativos. Os exemplares não são alterados. Reativar um livro já ativo não tem efeito e devolve o livro.
+         */
+        post: operations["reactivate_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -339,13 +527,53 @@ export interface paths {
          * Listar autores
          * @description Lista os autores de forma paginada (máximo de 100 por página), com filtro opcional por nome. Por padrão, só os ativos e em ordem de nome.
          */
-        get: operations["list_6"];
+        get: operations["list_8"];
         put?: never;
         /**
          * Cadastrar autor
-         * @description Cadastra um novo autor do acervo.
+         * @description Cadastra um novo autor do acervo. Se um autor ativo já tem o mesmo nome (sem diferenciar maiúsculas), o cadastro é recusado com 422 e o `existingAuthorId` do autor que existe; se for outro autor com o mesmo nome, repita com `allowDuplicate: true`. Autor inativo não conta.
          */
         post: operations["register_5"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/authors/{id}/reactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reativar autor
+         * @description Reativa um autor inativado (RN14), só para o administrador. Se outro autor ativo já tem o mesmo nome (sem diferenciar maiúsculas), a reativação é recusada com 422 e o `existingAuthorId`, como o cadastro (RN19); para confirmar o homônimo, envie o corpo opcional `{"allowDuplicate": true}`. Reativar um autor já ativo não tem efeito e devolve o autor.
+         */
+        post: operations["reactivate_3"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/reset-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Redefinir a senha com o link
+         * @description Troca a senha do leitor com o token do link de redefinição, que vale uma vez só. Revoga os refresh tokens do leitor e encerra um bloqueio de login por tentativas erradas. Link desconhecido, usado ou expirado devolve sempre a mesma resposta 422; senha fora da política também devolve 422 e o link continua valendo.
+         */
+        post: operations["resetPassword_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -406,6 +634,46 @@ export interface paths {
          * @description Autentica por login e senha. Devolve o access token (JWT) no corpo e define o refresh token (opaco) em um cookie `httpOnly`, que o JavaScript da página não consegue ler; o cookie só é enviado às rotas de autenticação. O front-end deve fazer a requisição com credenciais (`credentials: 'include'`). Login inexistente, senha errada e usuário inativo devolvem a mesma resposta 401, sem dizer qual foi o motivo.
          */
         post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/forgot-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pedir a redefinição da senha
+         * @description Envia um link de uso único (válido por 1 hora, configurável) ao e-mail informado, se ele for de um leitor ativo com acesso. A resposta é sempre 204 e não diz se o e-mail existe ou se algo foi enviado. Um novo pedido substitui o link anterior.
+         */
+        post: operations["forgotPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/accept-invitation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Aceitar o convite de acesso
+         * @description O leitor escolhe o login e a senha com o token do link do convite e passa a ter acesso. O convite vale uma vez só. Convite desconhecido, usado, expirado ou substituído devolve sempre a mesma resposta 422, sem dizer qual foi o motivo. Login já usado ou senha fora da política também devolvem 422, e nesses casos o convite continua valendo para uma nova tentativa. Nenhum token é devolvido: depois de aceitar, o leitor entra pelo login.
+         */
+        post: operations["acceptInvitation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -571,7 +839,7 @@ export interface paths {
         head?: never;
         /**
          * Editar livro
-         * @description Altera só os campos enviados; os omitidos mantêm o valor atual. O ISBN é imutável (RN01): se vier no corpo, é ignorado. Categoria e autores só precisam estar ativos quando são novos para o livro; os que ele já tinha continuam aceitos mesmo inativados depois. O conjunto de autores enviado substitui o atual.
+         * @description Altera só os campos enviados; os omitidos mantêm o valor atual. A editora e o ano podem ser trocados, mas não esvaziados (editora em branco é recusada); um livro anterior à exigência, sem editora ou ano, continua editável e pode ser completado. O ISBN é imutável (RN01): se vier no corpo, é ignorado. Categoria e autores só precisam estar ativos quando são novos para o livro; os que ele já tinha continuam aceitos mesmo inativados depois. O conjunto de autores enviado substitui o atual.
          */
         patch: operations["update_5"];
         trace?: never;
@@ -599,7 +867,7 @@ export interface paths {
         head?: never;
         /**
          * Editar autor
-         * @description Altera só os campos enviados; os omitidos mantêm o valor atual.
+         * @description Altera só os campos enviados; os omitidos mantêm o valor atual. Renomear para o nome de outro autor ativo (sem diferenciar maiúsculas) é recusado com 422 e o `existingAuthorId`, a menos que venha `allowDuplicate: true`; manter o próprio nome não é duplicidade.
          */
         patch: operations["update_6"];
         trace?: never;
@@ -635,7 +903,27 @@ export interface paths {
          * Listar suspensões
          * @description Lista as suspensões de forma paginada (máximo de 100 por página), por leitor e por estarem ou não em vigor hoje (`inForce`). Uma suspensão em vigor vai do dia da devolução até o dia anterior ao `releaseDate`; uma que já terminou, sozinha ou encerrada antes, não está em vigor, e nenhuma rotina precisa fechá-la. Sem `inForce`, vêm todas. Por padrão, da mais recente para a mais antiga. Cada item traz a data de término e o `releaseDate`, o dia em que o leitor volta a poder emprestar.
          */
-        get: operations["list_7"];
+        get: operations["list_9"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reservations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar reserva por id
+         * @description Devolve a reserva com o nome do leitor, o título do livro, a situação, o lugar na fila (se espera exemplar) e, se segura um, o exemplar e o prazo de retirada. Vale também para reserva encerrada.
+         */
+        get: operations["findById_6"];
         put?: never;
         post?: never;
         delete?: never;
@@ -664,6 +952,106 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/overdue-loans/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exportar o relatório de empréstimos em atraso em PDF
+         * @description Baixa o relatório de empréstimos em atraso (RF29, RF23) como arquivo PDF, só para o administrador (o operador recebe 403), para imprimir ou guardar, com as mesmas linhas e a mesma ordem de `GET /reports/overdue-loans`, mas todas de uma vez, sem paginação (no máximo 10000 linhas). O PDF traz o título, a data e a hora da emissão (`America/Sao_Paulo`), os filtros usados, a tabela com o cabeçalho repetido em cada página, o total no fim e o número da página. Se chama `overdue-loans-AAAA-MM-DD.pdf`.
+         */
+        get: operations["overdueLoansPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/overdue-loans/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exportar o relatório de empréstimos em atraso em CSV
+         * @description Baixa o relatório de empréstimos em atraso (RF29, RF23) como arquivo CSV, só para o administrador (o operador recebe 403), com as mesmas linhas e a mesma ordem de `GET /reports/overdue-loans`, mas todas de uma vez, sem paginação (no máximo 10000 linhas). O arquivo é UTF-8 com BOM, separado por `;`, com cabeçalho em português, e se chama `overdue-loans-AAAA-MM-DD.csv`. Texto que começa com `=`, `+`, `-` ou `@` sai com um `'` na frente, para a planilha não o tratar como fórmula.
+         */
+        get: operations["overdueLoansCsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/most-borrowed-books": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Relatório de livros mais emprestados
+         * @description Lista os livros mais emprestados em um período (RF24), do mais para o menos emprestado, de forma paginada (máximo de 100 por página). Conta os empréstimos retirados de `from` a `to`, com as duas datas incluídas, somando os exemplares de cada livro; a renovação não conta como novo empréstimo e o empréstimo ainda ativo conta. Livros sem empréstimo no período não aparecem. O período é obrigatório, em ordem (`from` não depois de `to`) e de no máximo 366 dias. Empate no total desempata pelo título e depois pelo id, então a ordem é estável. A ordem é fixa; qualquer `sort` enviado é ignorado.
+         */
+        get: operations["mostBorrowedBooks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/most-borrowed-books/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exportar o relatório de livros mais emprestados em PDF
+         * @description Baixa o relatório de livros mais emprestados (RF29, RF24) como arquivo PDF, só para o administrador (o operador recebe 403), para imprimir ou guardar, com as mesmas linhas, o mesmo período e a mesma ordem de `GET /reports/most-borrowed-books`, mas todas de uma vez, sem paginação (no máximo 10000 linhas). O período é obrigatório, em ordem e de no máximo 366 dias. O PDF traz o título, a data e a hora da emissão (`America/Sao_Paulo`), o período, a tabela com o cabeçalho repetido em cada página, os totais no fim e o número da página. Se chama `most-borrowed-books-AAAA-MM-DD.pdf`.
+         */
+        get: operations["mostBorrowedBooksPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/most-borrowed-books/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exportar o relatório de livros mais emprestados em CSV
+         * @description Baixa o relatório de livros mais emprestados (RF29, RF24) como arquivo CSV, só para o administrador (o operador recebe 403), com as mesmas linhas, o mesmo período e a mesma ordem de `GET /reports/most-borrowed-books`, mas todas de uma vez, sem paginação (no máximo 10000 linhas). O período é obrigatório, em ordem e de no máximo 366 dias. O arquivo é UTF-8 com BOM, separado por `;`, com cabeçalho em português, e se chama `most-borrowed-books-AAAA-MM-DD.csv`. Texto que começa com `=`, `+`, `-` ou `@` sai com um `'` na frente, para a planilha não o tratar como fórmula.
+         */
+        get: operations["mostBorrowedBooksCsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/reports/dashboard": {
         parameters: {
             query?: never;
@@ -684,6 +1072,226 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/collection-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Situação do acervo
+         * @description Devolve, numa chamada só, o total de exemplares ativos e quantos há em cada status (`AVAILABLE`, `BORROWED`, `RESERVED`, `DAMAGED` e `LOST`; um status sem exemplares vem com zero, então a soma por status é sempre o total). Os exemplares inativos (RN14) vêm à parte, em `inactiveCopies`, e não entram na contagem dos ativos.
+         */
+        get: operations["get_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/collection-status/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exportar a situação do acervo em PDF
+         * @description Baixa a situação do acervo (RF29, RF25) como arquivo PDF, só para o administrador (o operador recebe 403), para imprimir ou guardar, com os mesmos números de `GET /reports/collection-status`: o total de exemplares ativos, um por status e os inativos à parte. O PDF traz o título, a data e a hora da emissão (`America/Sao_Paulo`), a tabela, o total no fim e o número da página. Se chama `collection-status-AAAA-MM-DD.pdf`.
+         */
+        get: operations["getPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/collection-status/csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exportar a situação do acervo em CSV
+         * @description Baixa a situação do acervo (RF29, RF25) como arquivo CSV, só para o administrador (o operador recebe 403), com os mesmos números de `GET /reports/collection-status`: uma linha com o total de exemplares ativos, uma por status e uma com os exemplares inativos. O arquivo é UTF-8 com BOM, separado por `;`, com cabeçalho em português, e se chama `collection-status-AAAA-MM-DD.csv`.
+         */
+        get: operations["getCsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/standing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar a minha situação
+         * @description Devolve a situação do leitor logado hoje: se poderia pegar um livro emprestado (`canBorrow`) e, se não, todos os motivos de uma vez, os mesmos da recusa de um empréstimo no balcão; se está bloqueado (sem o motivo, que é decisão do operador); o total das multas pendentes; a suspensão em vigor, com o início e o dia em que volta a poder emprestar; e quantos empréstimos e reservas ativas tem, com os limites da biblioteca. Só traz o que é do próprio leitor. Bloqueado, suspenso ou com multa pendente também consulta normalmente. Só para o perfil de leitor.
+         */
+        get: operations["get_3"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/reservations/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar uma reserva minha
+         * @description Devolve a reserva do leitor logado, também a encerrada. Reserva de outro leitor devolve a mesma resposta 404 de uma reserva que não existe. Só para o perfil de leitor.
+         */
+        get: operations["findById_7"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/loans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar os meus empréstimos
+         * @description Lista os empréstimos do leitor logado, paginados (máximo de 100 por página), do mais recente para o mais antigo por padrão, por situação: `ACTIVE` (ainda não devolvidos) ou `RETURNED` (o histórico); sem o filtro, vêm todos. Com `overdue=true` vêm só os atrasados. Cada item traz o livro, as datas de retirada, prevista e de devolução, as renovações, os dias de atraso e, para o empréstimo devolvido, a multa e a suspensão geradas, quando houver. Nunca traz empréstimo de outro leitor nem dado do exemplar. Só para o perfil de leitor.
+         */
+        get: operations["list_10"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/loans/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar um empréstimo meu
+         * @description Devolve o empréstimo do leitor logado, também o já devolvido. Empréstimo de outro leitor devolve a mesma resposta 404 de um empréstimo que não existe. Só para o perfil de leitor.
+         */
+        get: operations["findById_8"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar categorias
+         * @description Lista as categorias ativas de forma paginada (máximo de 100 por página), em ordem de nome por padrão, com o filtro `name` por trecho. Serve para escolher a `categoryId` da pesquisa de livros. Só para o perfil de leitor.
+         */
+        get: operations["listCategories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/books": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pesquisar livros
+         * @description Lista os livros ativos de forma paginada (máximo de 100 por página), em ordem de título por padrão. Os filtros `title`, `author` e `isbn` casam por trecho, sem diferenciar maiúsculas (o título e o autor também ignoram acentos), a `categoryId` casa pelo id, e os filtros informados valem em conjunto (RF05). Cada livro traz `availableCopies`, a quantidade de exemplares disponíveis agora, e nada dos exemplares em si. Livro inativo nunca aparece. Só para o perfil de leitor. Tamanho de página acima de 100 é rejeitado com 400.
+         */
+        get: operations["listBooks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/books/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar um livro
+         * @description Devolve o livro ativo com o ISBN, o título, a editora, o ano, a categoria, os autores e a quantidade de exemplares disponíveis agora (`availableCopies`). Livro inativo ou inexistente devolve a mesma resposta 404. Só para o perfil de leitor.
+         */
+        get: operations["findBook"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/authors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar autores
+         * @description Lista os autores ativos de forma paginada (máximo de 100 por página), em ordem de nome por padrão, com o filtro `name` por trecho (sem diferenciar maiúsculas nem acentos). Só para o perfil de leitor.
+         */
+        get: operations["listAuthors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/loans/{id}": {
         parameters: {
             query?: never;
@@ -695,7 +1303,7 @@ export interface paths {
          * Consultar empréstimo por id
          * @description Devolve o empréstimo com o nome do leitor, o código de patrimônio do exemplar e o título do livro, as datas de retirada, prevista e de devolução e, se já foi devolvido, os dias de atraso e a multa e a suspensão geradas, quando houver. Vale também para empréstimo encerrado.
          */
-        get: operations["findById_6"];
+        get: operations["findById_9"];
         put?: never;
         post?: never;
         delete?: never;
@@ -715,7 +1323,7 @@ export interface paths {
          * Consultar o prazo e os limites de empréstimo
          * @description Devolve o prazo de empréstimo, os limites de empréstimos simultâneos e de renovações e o prazo de retirada de reservas, para a tela mostrar "14 dias, limite de 3, renovado 0/2". Vale para administrador e operador e é só leitura. A política de penalidade e os valores de multa e suspensão não vêm aqui: ficam na configuração completa, só para administrador.
          */
-        get: operations["get_2"];
+        get: operations["get_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -735,10 +1343,70 @@ export interface paths {
          * Listar multas
          * @description Lista as multas de forma paginada (máximo de 100 por página), por leitor e por situação: `PENDING` (impede novos empréstimos, RN05), `PAID` ou `WAIVED`. Sem filtro de situação, vêm todas. Por padrão, da mais recente para a mais antiga. Cada multa traz o `pendingAmount`, o valor ainda devido: o da multa enquanto está pendente e zero depois de paga ou abonada.
          */
-        get: operations["list_8"];
+        get: operations["list_11"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/books/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sugerir os dados de um livro pelo ISBN
+         * @description Consulta uma fonte externa pelo ISBN e devolve título, autores, editora e ano como sugestão para pré-preencher o cadastro (RF06); não grava nada, quem cadastra o livro é o `POST /api/v1/books`. Cada autor sugerido traz `existingAuthorId` quando o acervo já tem um autor ativo com esse nome (sem diferenciar maiúsculas), para não duplicar o cadastro. Se já existe um livro com o ISBN (o ISBN-10 e o ISBN-13 do mesmo livro são o mesmo ISBN), responde `ALREADY_REGISTERED` com o `registeredBookId` e não consulta a fonte. O `isbn` da resposta é sempre o ISBN-13. Fonte desligada, lenta, fora do ar ou sem o ISBN responde 200 com `NOT_FOUND` e uma mensagem: o cadastro manual segue funcionando (RNF19).
+         */
+        get: operations["lookup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit-log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar a trilha de auditoria
+         * @description Lista os registros da trilha de auditoria (RF27), do mais recente para o mais antigo, de forma paginada (máximo de 100 por página), só para administrador: o operador recebe 403. Cada registro diz quem fez (id e login do usuário do sistema; nulos quando ninguém fez), quando, o quê (`action`), em quê (`targetType` e `targetId`) e um resumo curto. Todos os filtros são opcionais e se combinam: `actorId`, `action`, `targetType`, `targetId` (que exige o `targetType`) e o período `from` e `to`, com as duas datas incluídas, no fuso `America/Sao_Paulo`. A ordem é fixa; qualquer `sort` enviado é ignorado. Os registros só são acrescentados pelas próprias operações: não há rota para criar, alterar nem apagar um.
+         */
+        get: operations["list_12"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/readers/{id}/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revogar o acesso do leitor
+         * @description Inativa o acesso do leitor (o registro fica, RN14), revoga os seus refresh tokens e invalida os links pendentes (convite e redefinição de senha). O leitor continua cadastrado e pode ser convidado de novo. É idempotente: sem acesso ativo, devolve 204 sem mudar nada. O access token já emitido vale até expirar (no máximo 15 minutos). Para ADMIN e OPERATOR. Inativar o leitor também revoga o acesso.
+         */
+        delete: operations["revoke"];
         options?: never;
         head?: never;
         patch?: never;
@@ -748,13 +1416,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        ResetUserPasswordRequest: {
-            /**
-             * @description Nova senha: de 8 a 25 caracteres, com ao menos uma letra maiúscula, uma minúscula, um número e um caractere especial. É guardada só como hash e nunca é devolvida.
-             * @example N3w-Pass#word
-             */
-            password: string;
-        };
         ProblemDetail: {
             /** Format: uri */
             type?: string;
@@ -767,6 +1428,26 @@ export interface components {
             properties?: {
                 [key: string]: unknown;
             };
+            /** @description Só nos 400 de requisição inválida: os campos que falharam, em ordem de campo */
+            errors?: {
+                /**
+                 * @description Caminho do campo na requisição, como o cliente o enviou; ausente quando o erro é sobre o objeto inteiro
+                 * @example guardian.email
+                 */
+                field?: string;
+                /**
+                 * @description O que está errado, em português
+                 * @example o e-mail é obrigatório
+                 */
+                message: string;
+            }[];
+        };
+        ResetUserPasswordRequest: {
+            /**
+             * @description Nova senha: de 8 a 25 caracteres, com ao menos uma letra maiúscula, uma minúscula, um número e um caractere especial. É guardada só como hash e nunca é devolvida.
+             * @example N3w-Pass#word
+             */
+            password: string;
         };
         CreateUserRequest: {
             /**
@@ -784,7 +1465,7 @@ export interface components {
              * @example OPERATOR
              * @enum {string}
              */
-            role: "ADMIN" | "OPERATOR";
+            role: "ADMIN" | "OPERATOR" | "READER";
             /**
              * @description Nome de exibição (opcional), o que as telas mostram para quem está logado; sem ele mostra-se o login. Até 100 caracteres.
              * @example Maria Silva
@@ -813,7 +1494,7 @@ export interface components {
              * @example OPERATOR
              * @enum {string}
              */
-            role: "ADMIN" | "OPERATOR";
+            role: "ADMIN" | "OPERATOR" | "READER";
             /**
              * @description Se o usuário está ativo
              * @example true
@@ -891,6 +1572,102 @@ export interface components {
              * @example true
              */
             inForce: boolean;
+        };
+        ReserveBookRequest: {
+            /**
+             * Format: int64
+             * @description Id do livro a reservar
+             * @example 30
+             */
+            bookId: number;
+            /**
+             * Format: int64
+             * @description Id do leitor que reserva
+             * @example 20
+             */
+            readerId: number;
+        };
+        ReservationResponse: {
+            /**
+             * Format: int64
+             * @description Identificador da reserva
+             * @example 42
+             */
+            id: number;
+            /**
+             * Format: int64
+             * @description Id do livro reservado
+             * @example 30
+             */
+            bookId: number;
+            /**
+             * Format: int64
+             * @description Id do leitor
+             * @example 20
+             */
+            readerId: number;
+            /**
+             * Format: int64
+             * @description Id do exemplar guardado para o leitor; nulo enquanto a reserva espera na fila
+             * @example 7
+             */
+            copyId?: number;
+            /**
+             * Format: date
+             * @description Data da reserva (ISO-8601)
+             * @example 2026-11-10
+             */
+            reservationDate: string;
+            /**
+             * Format: date
+             * @description Último dia para retirar o exemplar guardado (ISO-8601); nulo enquanto a reserva espera na fila
+             * @example 2026-11-13
+             */
+            pickupDeadline?: string;
+            /**
+             * @description Situação: ACTIVE, FULFILLED (retirada), CANCELLED ou EXPIRED
+             * @example ACTIVE
+             * @enum {string}
+             */
+            status: "ACTIVE" | "FULFILLED" | "CANCELLED" | "EXPIRED";
+            /**
+             * Format: int64
+             * @description Lugar na fila do livro, a partir de 1; nulo quando a reserva não espera na fila (já guarda um exemplar ou foi encerrada)
+             * @example 3
+             */
+            queuePosition?: number;
+        };
+        CancelReservationResponse: {
+            /** @description A reserva, já cancelada */
+            reservation: components["schemas"]["ReservationResponse"];
+            /** @description Reserva que recebeu o exemplar que a cancelada guardava (RF18): o exemplar fica guardado para o próximo da fila; nula quando a cancelada não guardava exemplar, ou ninguém esperava (o exemplar voltou a disponível) */
+            served?: components["schemas"]["ReservationSummary"];
+        };
+        ReservationSummary: {
+            /**
+             * Format: int64
+             * @description Identificador da reserva
+             * @example 42
+             */
+            id: number;
+            /**
+             * Format: int64
+             * @description Id do leitor que vai retirar o exemplar
+             * @example 21
+             */
+            readerId: number;
+            /**
+             * Format: int64
+             * @description Id do exemplar guardado para o leitor
+             * @example 7
+             */
+            copyId: number;
+            /**
+             * Format: date
+             * @description Último dia para retirar o exemplar (ISO-8601)
+             * @example 2026-11-13
+             */
+            pickupDeadline: string;
         };
         GuardianRequest: {
             /**
@@ -1002,6 +1779,168 @@ export interface components {
              */
             blocked: boolean;
         };
+        ReaderAccessInvitationResponse: {
+            /**
+             * Format: int64
+             * @description Id do leitor convidado
+             * @example 7
+             */
+            readerId: number;
+            /**
+             * Format: date-time
+             * @description Até quando o link do convite vale (ISO-8601, UTC)
+             * @example 2026-10-29T12:00:00Z
+             */
+            expiresAt: string;
+        };
+        ReserveMyBookRequest: {
+            /**
+             * Format: int64
+             * @description Id do livro a reservar
+             * @example 30
+             */
+            bookId: number;
+        };
+        ReaderReservationResponse: {
+            /**
+             * Format: int64
+             * @description Identificador da reserva
+             * @example 42
+             */
+            id: number;
+            /**
+             * Format: int64
+             * @description Id do livro reservado
+             * @example 30
+             */
+            bookId: number;
+            /**
+             * @description Título do livro reservado
+             * @example Dom Casmurro
+             */
+            bookTitle?: string;
+            /**
+             * Format: date
+             * @description Data da reserva (ISO-8601)
+             * @example 2026-11-10
+             */
+            reservationDate: string;
+            /**
+             * Format: date
+             * @description Último dia para retirar o exemplar guardado (ISO-8601); nulo enquanto a reserva espera na fila e depois de a reserva ser encerrada. Quando vem preenchido, há um exemplar guardado para o leitor.
+             * @example 2026-11-13
+             */
+            pickupDeadline?: string;
+            /**
+             * @description Situação: ACTIVE, FULFILLED (retirada), CANCELLED ou EXPIRED
+             * @example ACTIVE
+             * @enum {string}
+             */
+            status: "ACTIVE" | "FULFILLED" | "CANCELLED" | "EXPIRED";
+            /**
+             * Format: int64
+             * @description Lugar na fila do livro, a partir de 1; nulo quando a reserva não espera na fila (já guarda um exemplar ou foi encerrada)
+             * @example 3
+             */
+            queuePosition?: number;
+        };
+        FineSummary: {
+            /**
+             * Format: int64
+             * @description Identificador da multa
+             * @example 5
+             */
+            id: number;
+            /**
+             * @description Valor da multa, em reais
+             * @example 3
+             */
+            amount: number;
+            /**
+             * @description Situação da multa
+             * @example PENDING
+             * @enum {string}
+             */
+            status: "PENDING" | "PAID" | "WAIVED";
+        };
+        ReaderLoanResponse: {
+            /**
+             * Format: int64
+             * @description Identificador do empréstimo
+             * @example 42
+             */
+            id: number;
+            /**
+             * Format: int64
+             * @description Id do livro emprestado
+             * @example 3
+             */
+            bookId?: number;
+            /**
+             * @description Título do livro emprestado
+             * @example Dom Casmurro
+             */
+            bookTitle?: string;
+            /**
+             * Format: date
+             * @description Data de retirada (ISO-8601)
+             * @example 2026-11-01
+             */
+            pickupDate: string;
+            /**
+             * Format: date
+             * @description Data prevista de devolução (ISO-8601), já com as renovações
+             * @example 2026-11-15
+             */
+            dueDate: string;
+            /**
+             * Format: date
+             * @description Data da devolução; nula enquanto o exemplar não volta
+             * @example 2026-11-18
+             */
+            returnDate?: string;
+            /**
+             * Format: int32
+             * @description Quantas vezes o empréstimo foi renovado
+             * @example 0
+             */
+            renewals: number;
+            /**
+             * @description Se o empréstimo está ativo (ainda não devolvido)
+             * @example true
+             */
+            active: boolean;
+            /**
+             * Format: int64
+             * @description Dias de atraso: com que o exemplar voltou (zero se foi no prazo) ou, para o empréstimo ativo, até hoje; nulo enquanto o ativo está em dia (vencer hoje ainda é estar em dia)
+             * @example 3
+             */
+            daysLate?: number;
+            /** @description Multa gerada pela devolução; nula quando não houve */
+            fine?: components["schemas"]["FineSummary"];
+            /** @description Suspensão gerada pela devolução; nula quando não houve */
+            suspension?: components["schemas"]["SuspensionSummary"];
+        };
+        SuspensionSummary: {
+            /**
+             * Format: int64
+             * @description Identificador da suspensão
+             * @example 6
+             */
+            id: number;
+            /**
+             * Format: date
+             * @description Primeiro dia suspenso (o da devolução)
+             * @example 2026-11-18
+             */
+            startDate: string;
+            /**
+             * Format: date
+             * @description Dia em que o leitor volta a poder emprestar
+             * @example 2026-11-21
+             */
+            endDate: string;
+        };
         RegisterLoanRequest: {
             /**
              * Format: int64
@@ -1079,25 +2018,6 @@ export interface components {
              */
             condition?: "GOOD" | "DAMAGED" | "LOST";
         };
-        FineSummary: {
-            /**
-             * Format: int64
-             * @description Identificador da multa
-             * @example 5
-             */
-            id: number;
-            /**
-             * @description Valor da multa, em reais
-             * @example 3
-             */
-            amount: number;
-            /**
-             * @description Situação da multa
-             * @example PENDING
-             * @enum {string}
-             */
-            status: "PENDING" | "PAID" | "WAIVED";
-        };
         ReturnLoanResponse: {
             /** @description O empréstimo, já encerrado */
             loan: components["schemas"]["LoanResponse"];
@@ -1111,26 +2031,8 @@ export interface components {
             fine?: components["schemas"]["FineSummary"];
             /** @description Suspensão gerada; nula quando a política vigente não aplicou suspensão */
             suspension?: components["schemas"]["SuspensionSummary"];
-        };
-        SuspensionSummary: {
-            /**
-             * Format: int64
-             * @description Identificador da suspensão
-             * @example 6
-             */
-            id: number;
-            /**
-             * Format: date
-             * @description Primeiro dia suspenso (o da devolução)
-             * @example 2026-11-18
-             */
-            startDate: string;
-            /**
-             * Format: date
-             * @description Dia em que o leitor volta a poder emprestar
-             * @example 2026-11-21
-             */
-            endDate: string;
+            /** @description Reserva atendida pelo exemplar devolvido (RF18): o exemplar fica guardado para o primeiro da fila do livro; nula quando ninguém espera, ou o exemplar voltou danificado ou perdido */
+            reservation?: components["schemas"]["ReservationSummary"];
         };
         WaiveFineRequest: {
             /**
@@ -1250,7 +2152,7 @@ export interface components {
         };
         RegisterBookRequest: {
             /**
-             * @description ISBN-10 ou ISBN-13, com ou sem hífens
+             * @description ISBN-10 ou ISBN-13, com ou sem hífens; o ISBN-10 é guardado como o ISBN-13 do mesmo livro
              * @example 9788533302273
              */
             isbn: string;
@@ -1260,16 +2162,16 @@ export interface components {
              */
             title: string;
             /**
-             * @description Editora
+             * @description Editora (obrigatória, até 255 caracteres)
              * @example Garnier
              */
-            publisher?: string;
+            publisher: string;
             /**
              * Format: int32
-             * @description Ano de publicação
+             * @description Ano de publicação (obrigatório, de 1450 até o ano atual)
              * @example 1899
              */
-            publicationYear?: number;
+            publicationYear: number;
             /**
              * Format: int64
              * @description Id da categoria, já cadastrada e ativa
@@ -1315,13 +2217,13 @@ export interface components {
              */
             title: string;
             /**
-             * @description Editora
+             * @description Editora (só vem vazia em livro cadastrado antes de ela ser obrigatória)
              * @example Garnier
              */
             publisher?: string;
             /**
              * Format: int32
-             * @description Ano de publicação
+             * @description Ano de publicação (só vem vazio em livro cadastrado antes de ele ser obrigatório)
              * @example 1899
              */
             publicationYear?: number;
@@ -1379,6 +2281,11 @@ export interface components {
              * @example Machado de Assis
              */
             name: string;
+            /**
+             * @description Confirma que é um homônimo de um autor ativo: sem isso, um nome que um autor ativo já tem é recusado (422, com o `existingAuthorId`). Opcional; o padrão é falso.
+             * @example false
+             */
+            allowDuplicate?: boolean;
         };
         AuthorResponse: {
             /**
@@ -1397,6 +2304,25 @@ export interface components {
              * @example true
              */
             active: boolean;
+        };
+        ReactivateAuthorRequest: {
+            /**
+             * @description Confirma que o autor é um homônimo de um autor ativo: sem isso, reativar um autor cujo nome outro autor ativo já tem é recusado (422, com o `existingAuthorId`). Opcional; o padrão é falso.
+             * @example false
+             */
+            allowDuplicate?: boolean;
+        };
+        ResetReaderPasswordRequest: {
+            /**
+             * @description Token do link de redefinição, como veio no e-mail
+             * @example dGhpcy1pcy1ub3QtYS1yZWFsLXRva2Vu
+             */
+            token: string;
+            /**
+             * @description Nova senha: de 8 a 25 caracteres, com ao menos uma letra maiúscula, uma minúscula, um número e um caractere especial. É guardada só como hash e nunca é devolvida.
+             * @example N3w-Pass#word
+             */
+            password: string;
         };
         LoginResponse: {
             /** @description Access token JWT, para o cabeçalho `Authorization: Bearer <token>` */
@@ -1425,13 +2351,37 @@ export interface components {
              */
             password: string;
         };
+        ForgotPasswordRequest: {
+            /**
+             * @description E-mail com que o leitor está cadastrado
+             * @example ana@example.com
+             */
+            email: string;
+        };
+        AcceptInvitationRequest: {
+            /**
+             * @description Token do link do convite, como veio no e-mail
+             * @example dGhpcy1pcy1ub3QtYS1yZWFsLXRva2Vu
+             */
+            token: string;
+            /**
+             * @description Login que o leitor escolhe: sem espaços e com até 50 caracteres; não diferencia maiúsculas e deve ser único
+             * @example ana.souza
+             */
+            login: string;
+            /**
+             * @description Senha: de 8 a 25 caracteres, com ao menos uma letra maiúscula, uma minúscula, um número e um caractere especial. É guardada só como hash e nunca é devolvida.
+             * @example N3w-Pass#word
+             */
+            password: string;
+        };
         UpdateUserRequest: {
             /**
              * @description Novo perfil do usuário (opcional): ADMIN ou OPERATOR. Não é possível tirar o perfil de administrador do último administrador ativo.
              * @example ADMIN
              * @enum {string}
              */
-            role?: "ADMIN" | "OPERATOR";
+            role?: "ADMIN" | "OPERATOR" | "READER";
             /**
              * @description Novo nome de exibição (opcional). Omitido ou nulo mantém o atual; um texto em branco o remove. Até 100 caracteres.
              * @example Maria Silva
@@ -1521,6 +2471,12 @@ export interface components {
              * @example 3
              */
             reservationPickupDays?: number;
+            /**
+             * Format: int32
+             * @description Antecedência, em dias, do aviso por e-mail de que o empréstimo vai vencer (opcional): pelo menos 1
+             * @example 2
+             */
+            dueSoonNoticeDays?: number;
         };
         LibraryConfigurationResponse: {
             /**
@@ -1575,6 +2531,12 @@ export interface components {
              * @example 3
              */
             reservationPickupDays: number;
+            /**
+             * Format: int32
+             * @description Antecedência, em dias, do aviso por e-mail de que o empréstimo vai vencer
+             * @example 2
+             */
+            dueSoonNoticeDays: number;
         };
         UpdateCopyRequest: {
             /**
@@ -1598,13 +2560,13 @@ export interface components {
              */
             title?: string;
             /**
-             * @description Nova editora (opcional)
+             * @description Nova editora, até 255 caracteres (opcional; não pode ficar em branco)
              * @example Garnier
              */
             publisher?: string;
             /**
              * Format: int32
-             * @description Novo ano de publicação (opcional)
+             * @description Novo ano de publicação, de 1450 até o ano atual (opcional)
              * @example 1899
              */
             publicationYear?: number;
@@ -1628,6 +2590,11 @@ export interface components {
              * @example Machado de Assis
              */
             name?: string;
+            /**
+             * @description Confirma que o novo nome é de outro autor ativo de propósito (homônimo). Opcional; o padrão é falso.
+             * @example false
+             */
+            allowDuplicate?: boolean;
         };
         PageResponseUserResponse: {
             /** @description Itens da página */
@@ -1679,7 +2646,7 @@ export interface components {
              * @example OPERATOR
              * @enum {string}
              */
-            role: "ADMIN" | "OPERATOR";
+            role: "ADMIN" | "OPERATOR" | "READER";
         };
         PageResponseSuspensionResponse: {
             /** @description Itens da página */
@@ -1708,6 +2675,99 @@ export interface components {
              * @example 3
              */
             totalPages: number;
+        };
+        PageResponseReservationDetailsResponse: {
+            /** @description Itens da página */
+            items: components["schemas"]["ReservationDetailsResponse"][];
+            /**
+             * Format: int32
+             * @description Número da página, a partir de 0
+             * @example 0
+             */
+            page: number;
+            /**
+             * Format: int32
+             * @description Tamanho da página (máximo de 100)
+             * @example 20
+             */
+            size: number;
+            /**
+             * Format: int64
+             * @description Total de itens em todas as páginas
+             * @example 42
+             */
+            totalItems: number;
+            /**
+             * Format: int32
+             * @description Total de páginas
+             * @example 3
+             */
+            totalPages: number;
+        };
+        ReservationDetailsResponse: {
+            /**
+             * Format: int64
+             * @description Identificador da reserva
+             * @example 42
+             */
+            id: number;
+            /**
+             * Format: int64
+             * @description Id do livro reservado
+             * @example 30
+             */
+            bookId: number;
+            /**
+             * @description Título do livro reservado
+             * @example Dom Casmurro
+             */
+            bookTitle?: string;
+            /**
+             * Format: int64
+             * @description Id do leitor
+             * @example 20
+             */
+            readerId: number;
+            /**
+             * @description Nome do leitor
+             * @example Maria Silva
+             */
+            readerName?: string;
+            /**
+             * Format: int64
+             * @description Id do exemplar guardado para o leitor; nulo enquanto a reserva espera na fila
+             * @example 7
+             */
+            copyId?: number;
+            /**
+             * @description Código de patrimônio do exemplar guardado; nulo enquanto a reserva espera na fila
+             * @example PAT-0007
+             */
+            assetCode?: string;
+            /**
+             * Format: date
+             * @description Data da reserva (ISO-8601)
+             * @example 2026-11-10
+             */
+            reservationDate: string;
+            /**
+             * Format: date
+             * @description Último dia para retirar o exemplar guardado (ISO-8601); nulo enquanto a reserva espera na fila
+             * @example 2026-11-13
+             */
+            pickupDeadline?: string;
+            /**
+             * @description Situação: ACTIVE, FULFILLED (retirada), CANCELLED ou EXPIRED
+             * @example ACTIVE
+             * @enum {string}
+             */
+            status: "ACTIVE" | "FULFILLED" | "CANCELLED" | "EXPIRED";
+            /**
+             * Format: int64
+             * @description Lugar na fila do livro, a partir de 1; nulo quando a reserva não espera na fila (já guarda um exemplar ou foi encerrada)
+             * @example 3
+             */
+            queuePosition?: number;
         };
         OverdueLoanResponse: {
             /**
@@ -1796,6 +2856,53 @@ export interface components {
              */
             totalPages: number;
         };
+        MostBorrowedBookResponse: {
+            /**
+             * Format: int64
+             * @description Id do livro
+             * @example 3
+             */
+            bookId: number;
+            /**
+             * @description Título do livro
+             * @example Dom Casmurro
+             */
+            title?: string;
+            /**
+             * Format: int64
+             * @description Total de empréstimos do livro no período (soma dos seus exemplares); a renovação não conta como novo empréstimo
+             * @example 12
+             */
+            totalLoans: number;
+        };
+        PageResponseMostBorrowedBookResponse: {
+            /** @description Itens da página */
+            items: components["schemas"]["MostBorrowedBookResponse"][];
+            /**
+             * Format: int32
+             * @description Número da página, a partir de 0
+             * @example 0
+             */
+            page: number;
+            /**
+             * Format: int32
+             * @description Tamanho da página (máximo de 100)
+             * @example 20
+             */
+            size: number;
+            /**
+             * Format: int64
+             * @description Total de itens em todas as páginas
+             * @example 42
+             */
+            totalItems: number;
+            /**
+             * Format: int32
+             * @description Total de páginas
+             * @example 3
+             */
+            totalPages: number;
+        };
         CategoryCopiesResponse: {
             /**
              * Format: int64
@@ -1848,6 +2955,33 @@ export interface components {
             suspendedReaders: number;
             /** @description O que cada categoria tem, em ordem de nome: a categoria ativa sem livros vem com zero; a inativa só enquanto ainda tem livros ou exemplares */
             copiesByCategory: components["schemas"]["CategoryCopiesResponse"][];
+        };
+        CollectionStatusResponse: {
+            /**
+             * Format: int64
+             * @description Exemplares ativos, no total; é a soma de `activeByStatus`
+             * @example 120
+             */
+            totalCopies: number;
+            /**
+             * @description Exemplares ativos por status (AVAILABLE, BORROWED, RESERVED, DAMAGED e LOST); um status sem exemplares vem com zero
+             * @example {
+             *       "AVAILABLE": 90,
+             *       "BORROWED": 20,
+             *       "RESERVED": 4,
+             *       "DAMAGED": 3,
+             *       "LOST": 3
+             *     }
+             */
+            activeByStatus: {
+                [key: string]: number;
+            };
+            /**
+             * Format: int64
+             * @description Exemplares inativos, à parte, qualquer que seja o status; não entram na contagem dos ativos
+             * @example 5
+             */
+            inactiveCopies: number;
         };
         PageResponseReaderSummaryResponse: {
             /** @description Itens da página */
@@ -1909,6 +3043,255 @@ export interface components {
              * @example false
              */
             blocked: boolean;
+        };
+        ReaderStandingResponse: {
+            /**
+             * @description Se o leitor poderia pegar um livro emprestado hoje, no que depende dele (o exemplar e o livro não entram na conta)
+             * @example false
+             */
+            canBorrow: boolean;
+            /**
+             * @description Se um operador bloqueou o leitor. O motivo do bloqueio não é mostrado
+             * @example false
+             */
+            blocked: boolean;
+            /**
+             * @description Os motivos que hoje impedem o empréstimo, os mesmos da recusa no balcão e na mesma ordem; vazia quando `canBorrow` é verdadeiro
+             * @example [
+             *       "o leitor tem multa pendente"
+             *     ]
+             */
+            reasons: string[];
+            /**
+             * @description Total das multas pendentes (R$); zero quando não há
+             * @example 6
+             */
+            pendingFineTotal: number;
+            /** @description A suspensão em vigor hoje; nula quando o leitor não está suspenso */
+            suspension?: components["schemas"]["SuspensionInForce"];
+            /**
+             * Format: int64
+             * @description Quantos empréstimos ativos o leitor tem
+             * @example 2
+             */
+            activeLoans: number;
+            /**
+             * Format: int64
+             * @description Quantos deles estão em atraso (vencer hoje ainda é estar em dia)
+             * @example 0
+             */
+            overdueLoans: number;
+            /**
+             * Format: int32
+             * @description Limite de empréstimos simultâneos da biblioteca
+             * @example 3
+             */
+            loanLimit: number;
+            /**
+             * Format: int64
+             * @description Quantas reservas ativas o leitor tem, contadas à parte dos empréstimos
+             * @example 1
+             */
+            activeReservations: number;
+            /**
+             * Format: int32
+             * @description Limite de reservas ativas da biblioteca
+             * @example 3
+             */
+            reservationLimit: number;
+        };
+        SuspensionInForce: {
+            /**
+             * Format: date
+             * @description Primeiro dia da suspensão (ISO-8601)
+             * @example 2026-11-10
+             */
+            startDate: string;
+            /**
+             * Format: date
+             * @description Dia em que o leitor volta a poder emprestar (ISO-8601)
+             * @example 2026-11-14
+             */
+            releaseDate: string;
+        };
+        PageResponseReaderReservationResponse: {
+            /** @description Itens da página */
+            items: components["schemas"]["ReaderReservationResponse"][];
+            /**
+             * Format: int32
+             * @description Número da página, a partir de 0
+             * @example 0
+             */
+            page: number;
+            /**
+             * Format: int32
+             * @description Tamanho da página (máximo de 100)
+             * @example 20
+             */
+            size: number;
+            /**
+             * Format: int64
+             * @description Total de itens em todas as páginas
+             * @example 42
+             */
+            totalItems: number;
+            /**
+             * Format: int32
+             * @description Total de páginas
+             * @example 3
+             */
+            totalPages: number;
+        };
+        PageResponseReaderLoanResponse: {
+            /** @description Itens da página */
+            items: components["schemas"]["ReaderLoanResponse"][];
+            /**
+             * Format: int32
+             * @description Número da página, a partir de 0
+             * @example 0
+             */
+            page: number;
+            /**
+             * Format: int32
+             * @description Tamanho da página (máximo de 100)
+             * @example 20
+             */
+            size: number;
+            /**
+             * Format: int64
+             * @description Total de itens em todas as páginas
+             * @example 42
+             */
+            totalItems: number;
+            /**
+             * Format: int32
+             * @description Total de páginas
+             * @example 3
+             */
+            totalPages: number;
+        };
+        PageResponseCategorySummary: {
+            /** @description Itens da página */
+            items: components["schemas"]["CategorySummary"][];
+            /**
+             * Format: int32
+             * @description Número da página, a partir de 0
+             * @example 0
+             */
+            page: number;
+            /**
+             * Format: int32
+             * @description Tamanho da página (máximo de 100)
+             * @example 20
+             */
+            size: number;
+            /**
+             * Format: int64
+             * @description Total de itens em todas as páginas
+             * @example 42
+             */
+            totalItems: number;
+            /**
+             * Format: int32
+             * @description Total de páginas
+             * @example 3
+             */
+            totalPages: number;
+        };
+        PageResponseReaderBookResponse: {
+            /** @description Itens da página */
+            items: components["schemas"]["ReaderBookResponse"][];
+            /**
+             * Format: int32
+             * @description Número da página, a partir de 0
+             * @example 0
+             */
+            page: number;
+            /**
+             * Format: int32
+             * @description Tamanho da página (máximo de 100)
+             * @example 20
+             */
+            size: number;
+            /**
+             * Format: int64
+             * @description Total de itens em todas as páginas
+             * @example 42
+             */
+            totalItems: number;
+            /**
+             * Format: int32
+             * @description Total de páginas
+             * @example 3
+             */
+            totalPages: number;
+        };
+        ReaderBookResponse: {
+            /**
+             * Format: int64
+             * @description Identificador do livro
+             * @example 1
+             */
+            id: number;
+            /**
+             * @description ISBN-13, sem hífens
+             * @example 9788533302273
+             */
+            isbn: string;
+            /**
+             * @description Título do livro
+             * @example Dom Casmurro
+             */
+            title: string;
+            /**
+             * @description Editora (só vem vazia em livro cadastrado antes de ela ser obrigatória)
+             * @example Garnier
+             */
+            publisher?: string;
+            /**
+             * Format: int32
+             * @description Ano de publicação (só vem vazio em livro cadastrado antes de ele ser obrigatório)
+             * @example 1899
+             */
+            publicationYear?: number;
+            /**
+             * Format: int64
+             * @description Quantos exemplares estão disponíveis para empréstimo agora; zero quer dizer que o livro pode ser reservado
+             * @example 2
+             */
+            availableCopies: number;
+            /** @description Categoria do livro */
+            category: components["schemas"]["CategorySummary"];
+            /** @description Autores do livro, em ordem de nome */
+            authors: components["schemas"]["AuthorSummary"][];
+        };
+        PageResponseAuthorSummary: {
+            /** @description Itens da página */
+            items: components["schemas"]["AuthorSummary"][];
+            /**
+             * Format: int32
+             * @description Número da página, a partir de 0
+             * @example 0
+             */
+            page: number;
+            /**
+             * Format: int32
+             * @description Tamanho da página (máximo de 100)
+             * @example 20
+             */
+            size: number;
+            /**
+             * Format: int64
+             * @description Total de itens em todas as páginas
+             * @example 42
+             */
+            totalItems: number;
+            /**
+             * Format: int32
+             * @description Total de páginas
+             * @example 3
+             */
+            totalPages: number;
         };
         LoanDetailsResponse: {
             /**
@@ -2162,9 +3545,144 @@ export interface components {
              */
             totalPages: number;
         };
+        BookLookupResponse: {
+            /**
+             * @description ISBN como o acervo o guarda, sem hífens ou espaços
+             * @example 9788533302273
+             */
+            isbn: string;
+            /**
+             * @description O que aconteceu: FOUND (há sugestão), NOT_FOUND (a fonte externa não conhece o ISBN, está desligada, lenta ou fora do ar: cadastre à mão) ou ALREADY_REGISTERED (já existe um livro com este ISBN no acervo)
+             * @example FOUND
+             * @enum {string}
+             */
+            outcome: "FOUND" | "NOT_FOUND" | "ALREADY_REGISTERED";
+            /**
+             * @description Explicação em português do que aconteceu, para mostrar ao operador
+             * @example Dados sugeridos por uma fonte externa; confira antes de cadastrar.
+             */
+            message: string;
+            /**
+             * Format: int64
+             * @description Id do livro que já tem este ISBN; só vem com ALREADY_REGISTERED
+             * @example 7
+             */
+            registeredBookId?: number;
+            /** @description Dados para pré-preencher o cadastro; só vêm com FOUND */
+            suggestion?: components["schemas"]["Suggestion"];
+        };
+        SuggestedAuthor: {
+            /**
+             * @description Nome do autor como a fonte o dá
+             * @example Machado de Assis
+             */
+            name: string;
+            /**
+             * Format: int64
+             * @description Id do autor ativo do acervo com este nome (sem diferenciar maiúsculas), para o front usá-lo em vez de cadastrar de novo; vem vazio quando o acervo não tem
+             * @example 3
+             */
+            existingAuthorId?: number;
+        };
+        Suggestion: {
+            /**
+             * @description Título sugerido
+             * @example Dom Casmurro
+             */
+            title: string;
+            /**
+             * @description Editora sugerida
+             * @example Garnier
+             */
+            publisher?: string;
+            /**
+             * Format: int32
+             * @description Ano de publicação sugerido
+             * @example 1899
+             */
+            publicationYear?: number;
+            /** @description Autores sugeridos, na ordem da fonte */
+            authors: components["schemas"]["SuggestedAuthor"][];
+        };
         PageResponseAuthorResponse: {
             /** @description Itens da página */
             items: components["schemas"]["AuthorResponse"][];
+            /**
+             * Format: int32
+             * @description Número da página, a partir de 0
+             * @example 0
+             */
+            page: number;
+            /**
+             * Format: int32
+             * @description Tamanho da página (máximo de 100)
+             * @example 20
+             */
+            size: number;
+            /**
+             * Format: int64
+             * @description Total de itens em todas as páginas
+             * @example 42
+             */
+            totalItems: number;
+            /**
+             * Format: int32
+             * @description Total de páginas
+             * @example 3
+             */
+            totalPages: number;
+        };
+        AuditEntryResponse: {
+            /**
+             * Format: int64
+             * @description Identificador do registro
+             * @example 128
+             */
+            id: number;
+            /**
+             * Format: date-time
+             * @description Quando aconteceu (ISO-8601, UTC)
+             * @example 2026-10-24T15:00:00Z
+             */
+            occurredAt: string;
+            /**
+             * Format: int64
+             * @description Id do usuário do sistema que fez a operação; nulo quando ninguém a fez (o administrador inicial criado na subida, um login que não nomeia um usuário conhecido)
+             * @example 7
+             */
+            actorId?: number;
+            /**
+             * @description Login desse usuário, guardado junto do id; nulo quando não há autor
+             * @example maria
+             */
+            actorLogin?: string;
+            /**
+             * @description A operação registrada
+             * @example FINE_WAIVED
+             * @enum {string}
+             */
+            action: "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGIN_LOCKOUT" | "USER_CREATED" | "USER_UPDATED" | "USER_DEACTIVATED" | "USER_UNBLOCKED" | "USER_PASSWORD_RESET" | "READER_BLOCKED" | "READER_UNBLOCKED" | "READER_DEACTIVATED" | "FINE_PAID" | "FINE_WAIVED" | "SUSPENSION_ENDED" | "LIBRARY_CONFIGURATION_UPDATED" | "BOOK_DEACTIVATED" | "BOOK_REACTIVATED" | "AUTHOR_DEACTIVATED" | "AUTHOR_REACTIVATED" | "CATEGORY_DEACTIVATED" | "CATEGORY_REACTIVATED" | "COPY_DEACTIVATED" | "COPY_REACTIVATED" | "READER_ACCESS_INVITED" | "READER_ACCESS_GRANTED" | "READER_ACCESS_REVOKED" | "READER_PASSWORD_RESET" | "RESERVATION_CANCELLED";
+            /**
+             * @description O tipo do alvo da operação; nulo quando ela não tem alvo (um login falho de um usuário desconhecido)
+             * @example FINE
+             * @enum {string}
+             */
+            targetType?: "USER" | "READER" | "FINE" | "SUSPENSION" | "LIBRARY_CONFIGURATION" | "BOOK" | "AUTHOR" | "CATEGORY" | "COPY" | "RESERVATION";
+            /**
+             * Format: int64
+             * @description O id do alvo; nulo quando o alvo não tem id (a configuração da biblioteca) ou não há alvo
+             * @example 42
+             */
+            targetId?: number;
+            /**
+             * @description Resumo curto da operação, como o motivo digitado num abono (no máximo 500 caracteres); nunca traz senha, hash, token nem dado pessoal além do necessário
+             * @example multa abonada: erro de cálculo
+             */
+            summary?: string;
+        };
+        PageResponseAuditEntryResponse: {
+            /** @description Itens da página */
+            items: components["schemas"]["AuditEntryResponse"][];
             /**
              * Format: int32
              * @description Número da página, a partir de 0
@@ -2278,6 +3796,11 @@ export interface operations {
                 login?: string;
                 /** @description Listar ativos (true) ou inativos (false) */
                 active?: boolean;
+                /**
+                 * @description Listar só este perfil (ADMIN, OPERATOR ou READER). Sem ele, a lista traz os usuários que operam o sistema (ADMIN e OPERATOR), sem os acessos dos leitores
+                 * @example READER
+                 */
+                role?: "ADMIN" | "OPERATOR" | "READER";
                 /** @description Número da página, a partir de 0 */
                 page?: number;
                 /** @description Tamanho da página, de 1 a 100 */
@@ -2514,6 +4037,229 @@ export interface operations {
         parameters: {
             query?: {
                 /**
+                 * @description Só as reservas deste leitor
+                 * @example 20
+                 */
+                readerId?: number;
+                /**
+                 * @description Só as reservas deste livro
+                 * @example 30
+                 */
+                bookId?: number;
+                /** @description ACTIVE, FULFILLED, CANCELLED ou EXPIRED; sem o parâmetro, todas */
+                status?: "ACTIVE" | "FULFILLED" | "CANCELLED" | "EXPIRED";
+                /** @description Número da página, a partir de 0 */
+                page?: number;
+                /** @description Tamanho da página, de 1 a 100 */
+                size?: number;
+                /**
+                 * @description Ordenação no formato campo[,asc|desc]; campos: id, reservationDate, pickupDeadline
+                 * @example id,desc
+                 */
+                sort?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Página de reservas */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageResponseReservationDetailsResponse"];
+                };
+            };
+            /** @description Paginação, ordenação ou filtro inválidos (inclusive tamanho acima de 100 e situação desconhecida) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    reserve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReserveBookRequest"];
+            };
+        };
+        responses: {
+            /** @description Reserva registrada, com o lugar na fila */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReservationResponse"];
+                };
+            };
+            /** @description Requisição inválida (livro ou leitor ausente) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Livro ou leitor não encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Outra requisição alterou os mesmos dados ao mesmo tempo; tente novamente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Reserva não permitida; a mensagem traz todos os motivos de uma vez: leitor inativo ou bloqueado (RN11), livro inativo (RN14), livro com exemplar disponível, já emprestado ao leitor ou já reservado por ele, limite de reservas ativas (RN12), multa pendente, suspensão ou empréstimo em atraso (RN05) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    cancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reserva cancelada e, se havia, a reserva que recebeu o exemplar liberado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CancelReservationResponse"];
+                };
+            };
+            /** @description Identificador inválido */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Reserva não encontrada */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Outra requisição alterou a mesma reserva ou o mesmo exemplar ao mesmo tempo; tente novamente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Reserva já encerrada: retirada, expirada ou cancelada */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_2: {
+        parameters: {
+            query?: {
+                /**
                  * @description Trecho do nome, sem diferenciar maiúsculas
                  * @example maria
                  */
@@ -2744,7 +4490,343 @@ export interface operations {
             };
         };
     };
-    list_2: {
+    invite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Convite enviado */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReaderAccessInvitationResponse"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Leitor não encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Leitor inativo ou que já tem acesso ao sistema */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_3: {
+        parameters: {
+            query: {
+                readerId: number;
+                /** @description ACTIVE, FULFILLED, CANCELLED ou EXPIRED; sem o parâmetro, todas */
+                status?: "ACTIVE" | "FULFILLED" | "CANCELLED" | "EXPIRED";
+                /** @description Número da página, a partir de 0 */
+                page?: number;
+                /** @description Tamanho da página, de 1 a 100 */
+                size?: number;
+                /**
+                 * @description Ordenação no formato campo[,asc|desc]; campos: id, reservationDate, pickupDeadline
+                 * @example id,desc
+                 */
+                sort?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Página de reservas do leitor */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageResponseReaderReservationResponse"];
+                };
+            };
+            /** @description Paginação, ordenação ou situação inválidas (inclusive tamanho acima de 100) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    reserve_1: {
+        parameters: {
+            query: {
+                readerId: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReserveMyBookRequest"];
+            };
+        };
+        responses: {
+            /** @description Reserva registrada, com o lugar na fila */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReaderReservationResponse"];
+                };
+            };
+            /** @description Requisição inválida (livro ausente) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Livro não encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Outra requisição alterou os mesmos dados ao mesmo tempo; tente novamente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Reserva não permitida; a mensagem traz todos os motivos de uma vez (RN05, RN11, RN12, RN14) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    cancel_1: {
+        parameters: {
+            query: {
+                readerId: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reserva cancelada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReaderReservationResponse"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Reserva não encontrada (ou de outro leitor) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Outra requisição alterou a mesma reserva ou o mesmo exemplar ao mesmo tempo; tente novamente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Reserva já encerrada: retirada, expirada ou cancelada */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    renew: {
+        parameters: {
+            query: {
+                readerId: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Empréstimo renovado, com a nova data prevista */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReaderLoanResponse"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Empréstimo não encontrado (ou de outro leitor) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Outra requisição alterou o mesmo empréstimo ao mesmo tempo; tente novamente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Renovação não permitida (a mensagem diz o motivo): empréstimo encerrado (RN09), em atraso, livro inativo (RN14), limite de renovações atingido, outro leitor esperando o livro na fila (RN07), ou leitor bloqueado, suspenso ou com multa pendente (RN21; a mensagem traz todos os motivos) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_4: {
         parameters: {
             query?: {
                 /**
@@ -2885,7 +4967,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Empréstimo não permitido; a mensagem traz todos os motivos de uma vez: exemplar indisponível (RN03), limite de empréstimos simultâneos (RN04), multa pendente, suspensão ou empréstimo em atraso (RN05), leitor inativo ou bloqueado (RN11) */
+            /** @description Empréstimo não permitido; a mensagem traz todos os motivos de uma vez: livro inativo (RN14), exemplar indisponível, reservado para outro leitor ou com o prazo de retirada da reserva vencido (RN03, RN13), limite de empréstimos simultâneos (RN04), multa pendente, suspensão ou empréstimo em atraso (RN05), leitor inativo ou bloqueado (RN11) */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -2976,7 +5058,7 @@ export interface operations {
             };
         };
     };
-    renew: {
+    renew_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -3041,7 +5123,7 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Renovação não permitida (a mensagem diz o motivo): empréstimo encerrado (RN09), em atraso ou com o limite de renovações atingido (RN07) */
+            /** @description Renovação não permitida (a mensagem diz o motivo): empréstimo encerrado (RN09), em atraso, livro inativo (RN14), com o limite de renovações atingido ou com outro leitor esperando o livro na fila de reservas (RN07); ou leitor inativo, bloqueado, suspenso ou com multa pendente (RN21), caso em que a mensagem traz todos os motivos do leitor */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -3208,7 +5290,7 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list_5: {
         parameters: {
             query?: {
                 /**
@@ -3339,7 +5421,65 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    reactivate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Exemplar reativado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CopyResponse"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Exemplar não encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description O livro do exemplar está inativo: reative o livro antes */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_6: {
         parameters: {
             query?: {
                 /**
@@ -3463,21 +5603,70 @@ export interface operations {
             };
         };
     };
-    list_5: {
+    reactivate_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Categoria reativada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CategoryResponse"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Categoria não encontrada */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_7: {
         parameters: {
             query?: {
                 /**
-                 * @description Trecho do título
+                 * @description Trecho do título, sem diferenciar maiúsculas nem acentos
                  * @example casmurro
                  */
                 title?: string;
                 /**
-                 * @description Trecho do nome de um dos autores
+                 * @description Trecho do nome de um dos autores, sem diferenciar maiúsculas nem acentos
                  * @example machado
                  */
                 author?: string;
                 /**
-                 * @description Trecho do ISBN, com ou sem hífens
+                 * @description Trecho do ISBN-13 guardado, com ou sem hífens
                  * @example 978-85-3330
                  */
                 isbn?: string;
@@ -3602,11 +5791,78 @@ export interface operations {
             };
         };
     };
-    list_6: {
+    reactivate_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Livro reativado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BookResponse"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Livro não encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Outra requisição alterou o mesmo livro ao mesmo tempo; tente novamente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Categoria ou algum autor do livro está inativo (a mensagem diz quais): reative-os antes */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_8: {
         parameters: {
             query?: {
                 /**
-                 * @description Trecho do nome, sem diferenciar maiúsculas
+                 * @description Trecho do nome, sem diferenciar maiúsculas nem acentos
                  * @example assis
                  */
                 name?: string;
@@ -3664,6 +5920,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     register_5: {
@@ -3708,6 +5973,135 @@ export interface operations {
             };
             /** @description Sem permissão: o perfil do token não pode chamar esta rota */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Já existe um autor ativo com o mesmo nome; a resposta traz o `existingAuthorId` (repita com `allowDuplicate: true` para confirmar o homônimo) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    reactivate_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReactivateAuthorRequest"];
+            };
+        };
+        responses: {
+            /** @description Autor reativado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["AuthorResponse"];
+                };
+            };
+            /** @description Corpo ilegível */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Autor não encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Outra requisição alterou o mesmo autor ao mesmo tempo; tente novamente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Outro autor ativo já tem o nome; a resposta traz o `existingAuthorId` (repita com `allowDuplicate: true` para confirmar o homônimo) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    resetPassword_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResetReaderPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Senha alterada */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Requisição inválida (campos ausentes) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Link inválido ou expirado, ou senha fora da política */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3827,6 +6221,77 @@ export interface operations {
             };
             /** @description Login ou senha inválidos */
             401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    forgotPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ForgotPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Pedido recebido */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Requisição inválida (e-mail ausente) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    acceptInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptInvitationRequest"];
+            };
+        };
+        responses: {
+            /** @description Acesso criado */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Requisição inválida (campos ausentes) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Convite inválido ou expirado, login já usado ou senha fora da política */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4714,6 +7179,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description Outra requisição alterou o mesmo livro ao mesmo tempo; tente novamente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     update_5: {
@@ -4769,6 +7243,15 @@ export interface operations {
             };
             /** @description Livro não encontrado */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Outra requisição alterou o mesmo livro ao mesmo tempo; tente novamente */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4834,6 +7317,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     deactivate_5: {
@@ -4874,6 +7366,24 @@ export interface operations {
             };
             /** @description Autor não encontrado */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Outra requisição alterou o mesmo autor ao mesmo tempo; tente novamente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4943,6 +7453,24 @@ export interface operations {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
                 };
             };
+            /** @description Outra requisição alterou o mesmo autor ao mesmo tempo; tente novamente */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Outro autor ativo já tem o nome; a resposta traz o `existingAuthorId` (repita com `allowDuplicate: true` para confirmar o homônimo) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
         };
     };
     me: {
@@ -4983,7 +7511,7 @@ export interface operations {
             };
         };
     };
-    list_7: {
+    list_9: {
         parameters: {
             query?: {
                 /**
@@ -5047,6 +7575,64 @@ export interface operations {
             };
         };
     };
+    findById_6: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reserva encontrada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReservationDetailsResponse"];
+                };
+            };
+            /** @description Identificador inválido */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Reserva não encontrada */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     overdueLoans: {
         parameters: {
             query?: {
@@ -5099,6 +7685,296 @@ export interface operations {
             };
         };
     };
+    overdueLoansPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Arquivo PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description O relatório tem mais linhas que o máximo da exportação */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    overdueLoansCsv: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Arquivo CSV */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description O relatório tem mais linhas que o máximo da exportação */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    mostBorrowedBooks: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Primeiro dia do período, incluído (AAAA-MM-DD)
+                 * @example 2026-01-01
+                 */
+                from?: string;
+                /**
+                 * @description Último dia do período, incluído (AAAA-MM-DD)
+                 * @example 2026-12-31
+                 */
+                to?: string;
+                /** @description Número da página, a partir de 0 */
+                page?: number;
+                /** @description Tamanho da página, de 1 a 100 */
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Página do relatório: o livro (id e título) e o total */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageResponseMostBorrowedBookResponse"];
+                };
+            };
+            /** @description Período ausente, malformado, invertido ou maior que 366 dias, ou paginação inválida (inclusive tamanho acima de 100) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    mostBorrowedBooksPdf: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Primeiro dia do período, incluído (AAAA-MM-DD)
+                 * @example 2026-01-01
+                 */
+                from?: string;
+                /**
+                 * @description Último dia do período, incluído (AAAA-MM-DD)
+                 * @example 2026-12-31
+                 */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Arquivo PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            /** @description Período ausente, malformado, invertido ou maior que 366 dias */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description O relatório tem mais linhas que o máximo da exportação */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    mostBorrowedBooksCsv: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Primeiro dia do período, incluído (AAAA-MM-DD)
+                 * @example 2026-01-01
+                 */
+                from?: string;
+                /**
+                 * @description Último dia do período, incluído (AAAA-MM-DD)
+                 * @example 2026-12-31
+                 */
+                to?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Arquivo CSV */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description Período ausente, malformado, invertido ou maior que 366 dias */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description O relatório tem mais linhas que o máximo da exportação */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     get_1: {
         parameters: {
             query?: never;
@@ -5137,7 +8013,578 @@ export interface operations {
             };
         };
     };
-    findById_6: {
+    get_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Situação do acervo */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["CollectionStatusResponse"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Arquivo PDF */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    getCsv: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Arquivo CSV */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_3: {
+        parameters: {
+            query: {
+                readerId: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A situação do leitor */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReaderStandingResponse"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    findById_7: {
+        parameters: {
+            query: {
+                readerId: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reserva encontrada */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReaderReservationResponse"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Reserva não encontrada (ou de outro leitor) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_10: {
+        parameters: {
+            query: {
+                readerId: number;
+                /** @description ACTIVE (ainda não devolvidos) ou RETURNED (encerrados); sem o parâmetro, ambos */
+                status?: "ACTIVE" | "RETURNED";
+                /**
+                 * @description Só os empréstimos atrasados: ativos com a data prevista anterior a hoje (vencer hoje ainda é estar em dia). Não vale com `status=RETURNED` (400)
+                 * @example true
+                 */
+                overdue?: boolean;
+                /** @description Número da página, a partir de 0 */
+                page?: number;
+                /** @description Tamanho da página, de 1 a 100 */
+                size?: number;
+                /**
+                 * @description Ordenação no formato campo[,asc|desc]; campos: id, pickupDate, dueDate, returnDate
+                 * @example pickupDate,desc
+                 */
+                sort?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Página de empréstimos do leitor */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageResponseReaderLoanResponse"];
+                };
+            };
+            /** @description Paginação, ordenação ou filtro inválidos (inclusive tamanho acima de 100 e situação desconhecida) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    findById_8: {
+        parameters: {
+            query: {
+                readerId: number;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Empréstimo encontrado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReaderLoanResponse"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Empréstimo não encontrado (ou de outro leitor) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listCategories: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Trecho do nome, sem diferenciar maiúsculas
+                 * @example romance
+                 */
+                name?: string;
+                /** @description Número da página, a partir de 0 */
+                page?: number;
+                /** @description Tamanho da página, de 1 a 100 */
+                size?: number;
+                /**
+                 * @description Ordenação no formato campo[,asc|desc]; campos: id, name
+                 * @example name,asc
+                 */
+                sort?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Página de categorias */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageResponseCategorySummary"];
+                };
+            };
+            /** @description Paginação ou ordenação inválidas (inclusive tamanho acima de 100) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listBooks: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Trecho do título, sem diferenciar maiúsculas nem acentos
+                 * @example casmurro
+                 */
+                title?: string;
+                /**
+                 * @description Trecho do nome de um dos autores, sem diferenciar maiúsculas nem acentos
+                 * @example machado
+                 */
+                author?: string;
+                /**
+                 * @description Trecho do ISBN-13 guardado, com ou sem hífens
+                 * @example 978-85-3330
+                 */
+                isbn?: string;
+                /**
+                 * @description Id da categoria
+                 * @example 1
+                 */
+                categoryId?: number;
+                /** @description Número da página, a partir de 0 */
+                page?: number;
+                /** @description Tamanho da página, de 1 a 100 */
+                size?: number;
+                /**
+                 * @description Ordenação no formato campo[,asc|desc]; campos: id, title, isbn, publicationYear
+                 * @example title,asc
+                 */
+                sort?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Página de livros */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageResponseReaderBookResponse"];
+                };
+            };
+            /** @description Paginação, ordenação ou filtro inválidos (inclusive tamanho acima de 100) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    findBook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Livro encontrado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReaderBookResponse"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Livro não encontrado (ou inativo) */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    listAuthors: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Trecho do nome, sem diferenciar maiúsculas nem acentos
+                 * @example machado
+                 */
+                name?: string;
+                /** @description Número da página, a partir de 0 */
+                page?: number;
+                /** @description Tamanho da página, de 1 a 100 */
+                size?: number;
+                /**
+                 * @description Ordenação no formato campo[,asc|desc]; campos: id, name
+                 * @example name,asc
+                 */
+                sort?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Página de autores */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageResponseAuthorSummary"];
+                };
+            };
+            /** @description Paginação ou ordenação inválidas (inclusive tamanho acima de 100) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    findById_9: {
         parameters: {
             query?: never;
             header?: never;
@@ -5195,7 +8642,7 @@ export interface operations {
             };
         };
     };
-    get_2: {
+    get_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -5233,7 +8680,7 @@ export interface operations {
             };
         };
     };
-    list_8: {
+    list_11: {
         parameters: {
             query?: {
                 /**
@@ -5288,6 +8735,182 @@ export interface operations {
             };
             /** @description Sem permissão: o perfil do token não pode chamar esta rota */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    lookup: {
+        parameters: {
+            query?: {
+                /**
+                 * @description ISBN-10 ou ISBN-13, com ou sem hífens
+                 * @example 978-85-333-0227-3
+                 */
+                isbn?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sugestão, ISBN já cadastrado ou nada encontrado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["BookLookupResponse"];
+                };
+            };
+            /** @description ISBN ausente ou inválido (tamanho ou dígito verificador) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_12: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Id do usuário do sistema que fez a operação
+                 * @example 7
+                 */
+                actorId?: number;
+                /** @description A operação registrada */
+                action?: "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGIN_LOCKOUT" | "USER_CREATED" | "USER_UPDATED" | "USER_DEACTIVATED" | "USER_UNBLOCKED" | "USER_PASSWORD_RESET" | "READER_BLOCKED" | "READER_UNBLOCKED" | "READER_DEACTIVATED" | "FINE_PAID" | "FINE_WAIVED" | "SUSPENSION_ENDED" | "LIBRARY_CONFIGURATION_UPDATED" | "BOOK_DEACTIVATED" | "BOOK_REACTIVATED" | "AUTHOR_DEACTIVATED" | "AUTHOR_REACTIVATED" | "CATEGORY_DEACTIVATED" | "CATEGORY_REACTIVATED" | "COPY_DEACTIVATED" | "COPY_REACTIVATED" | "READER_ACCESS_INVITED" | "READER_ACCESS_GRANTED" | "READER_ACCESS_REVOKED" | "READER_PASSWORD_RESET" | "RESERVATION_CANCELLED";
+                /** @description O tipo do alvo da operação */
+                targetType?: "USER" | "READER" | "FINE" | "SUSPENSION" | "LIBRARY_CONFIGURATION" | "BOOK" | "AUTHOR" | "CATEGORY" | "COPY" | "RESERVATION";
+                /**
+                 * @description O id do alvo; exige `targetType`
+                 * @example 42
+                 */
+                targetId?: number;
+                /**
+                 * @description Primeiro dia do período, incluído (AAAA-MM-DD)
+                 * @example 2026-10-01
+                 */
+                from?: string;
+                /**
+                 * @description Último dia do período, incluído (AAAA-MM-DD)
+                 * @example 2026-10-31
+                 */
+                to?: string;
+                /** @description Número da página, a partir de 0 */
+                page?: number;
+                /** @description Tamanho da página, de 1 a 100 */
+                size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Página de registros */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["PageResponseAuditEntryResponse"];
+                };
+            };
+            /** @description Filtro inválido (ação ou tipo de alvo desconhecidos, `targetId` sem `targetType`, data malformada ou período invertido) ou paginação inválida (inclusive tamanho acima de 100) */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    revoke: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Acesso revogado (ou o leitor não tinha acesso ativo) */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Leitor não encontrado */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
