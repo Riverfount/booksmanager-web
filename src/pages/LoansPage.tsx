@@ -6,9 +6,11 @@ import type { LoanDetails, ReturnCondition, ReturnLoanResult } from '../api/type
 import { useAuth } from '../auth/AuthContext'
 import { CopyStatusBadge, copyStatusInfo } from '../components/copyStatus'
 import { LoanStatusBadge } from '../components/loanStatus'
-import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, ErrorSummary, FormCard, PageHeader, Pagination, Pills, RequiredNote, SelectField, Spinner, TextField } from '../components/ui'
+import { ReaderPicker, type ReaderChoice } from '../components/ReaderPicker'
+import { Banner, Button, Card, DataTable, Dialog, EmptyState, ErrorSummary, FormCard, PageHeader, Pagination, Pills, RequiredNote, SelectField, Spinner, TextField } from '../components/ui'
 import { addDaysIso, formatDate, formatMoney, todayIso } from '../lib/dates'
 import { fid } from '../lib/form'
+import { lendingIssue } from '../lib/reservations'
 import { useDebounced } from '../lib/useDebounced'
 
 type Tab = 'ACTIVE' | 'OVERDUE' | 'RETURNED'
@@ -85,19 +87,12 @@ export function LoansPage() {
 
 function NewLoan({ rules, onDone }: { rules?: { loanPeriodDays: number; loanLimit: number }; onDone: () => void }) {
   const { state } = useAuth()
-  const [readerQuery, setReaderQuery] = useState('')
-  const [reader, setReader] = useState<{ id: number; name: string } | null>(null)
+  const [reader, setReader] = useState<ReaderChoice | null>(null)
   const [code, setCode] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [done, setDone] = useState(false)
-  const q = useDebounced(readerQuery.trim())
   const codeQ = useDebounced(code.trim())
 
-  const readers = useQuery({
-    queryKey: ['readers', 'picker', q],
-    enabled: q.length > 0 && !reader,
-    queryFn: () => call(api.GET('/api/v1/readers', { params: { query: { name: q, size: 5, active: true } } })),
-  })
   const copy = useQuery({
     queryKey: ['copies', 'code', codeQ],
     enabled: codeQ.length > 0,
@@ -109,9 +104,16 @@ function NewLoan({ rules, onDone }: { rules?: { loanPeriodDays: number; loanLimi
     queryFn: () => call(api.GET('/api/v1/books/{id}', { params: { path: { id: copy.data!.bookId } } })),
   })
 
+  // A reserved copy is held for one reader: find out who, to say so and to warn when another reader is chosen.
+  const reservation = useQuery({
+    queryKey: ['reservations', 'copy', copy.data?.id],
+    enabled: copy.data?.status === 'RESERVED',
+    queryFn: async () => (await call(api.GET('/api/v1/reservations', { params: { query: { bookId: copy.data!.bookId, status: 'ACTIVE', size: 100 } } }))).items.find((r) => r.copyId === copy.data!.id) ?? null,
+  })
+
   const register = useMutation({
     mutationFn: () => call(api.POST('/api/v1/loans', { body: { copyId: copy.data!.id, readerId: reader!.id } })),
-    onSuccess: () => { setDone(true); setSubmitted(false); setReader(null); setReaderQuery(''); setCode(''); onDone() },
+    onSuccess: () => { setDone(true); setSubmitted(false); setReader(null); setCode(''); onDone() },
   })
 
   const lookingUp = code.trim() !== codeQ || copy.isFetching
@@ -119,7 +121,11 @@ function NewLoan({ rules, onDone }: { rules?: { loanPeriodDays: number; loanLimi
   if (!reader) errors.push({ id: fid('reader'), message: 'Leitor: selecione o leitor.' })
   if (!code.trim()) errors.push({ id: fid('assetCode'), message: 'Exemplar: informe o código de patrimônio.' })
   else if (!lookingUp && copy.data === null) errors.push({ id: fid('assetCode'), message: 'Exemplar: nenhum exemplar com este código.' })
-  else if (!lookingUp && copy.data && copy.data.status !== 'AVAILABLE') errors.push({ id: fid('assetCode'), message: `Exemplar: não está disponível (${copyStatusInfo[copy.data.status].label.toLowerCase()}).` })
+  else if (!lookingUp && copy.data) {
+    const issue = lendingIssue(copy.data.status, reservation.data ?? undefined, reader?.id)
+    if (issue === 'unavailable') errors.push({ id: fid('assetCode'), message: `Exemplar: não está disponível (${copyStatusInfo[copy.data.status].label.toLowerCase()}).` })
+    if (issue === 'reserved-for-other') errors.push({ id: fid('assetCode'), message: 'Exemplar: reservado para outro leitor.' })
+  }
   const shown = (id: string) => (submitted ? errors.find((e) => e.id === id)?.message : undefined)
 
   const submit = (e: FormEvent) => {
@@ -138,38 +144,17 @@ function NewLoan({ rules, onDone }: { rules?: { loanPeriodDays: number; loanLimi
         {register.isError && <Banner kind="error">{errorMessage(register.error)}</Banner>}
         <ErrorSummary title={errors.length === 1 ? 'Corrija 1 campo para registrar o empréstimo.' : `Corrija ${errors.length} campos para registrar o empréstimo.`} items={submitted ? errors : []} />
 
-        <fieldset id={fid('reader')} className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
-          <legend className="mb-1.5 p-0 text-sm text-fg2">Leitor <span aria-hidden="true" className="text-orange">*</span></legend>
-          {reader ? (
-            <div className="flex items-center justify-between gap-2 rounded-md bg-bg2 px-3 py-2 text-sm">
-              <span>{reader.name}</span>
-              <Button small onClick={() => setReader(null)}>Trocar</Button>
-            </div>
-          ) : (
-            <>
-              <input type="search" aria-label="Buscar leitor pelo nome" placeholder="Buscar leitor pelo nome" value={readerQuery} onChange={(e) => setReaderQuery(e.target.value)} className={`box-border h-11 w-full rounded-md border bg-bg0-h px-3 text-[15px] text-fg ${shown(fid('reader')) ? 'border-red' : 'border-line'}`} />
-              {readers.data && readers.data.items.length === 0 && <span className="text-sm text-muted">Nenhum leitor encontrado.</span>}
-              {readers.data && readers.data.items.length > 0 && (
-                <div className="flex flex-col overflow-hidden rounded-md border border-line bg-bg0-h">
-                  {readers.data.items.map((r) => (
-                    <button key={r.id} type="button" onClick={() => setReader({ id: r.id, name: r.name })} className="flex min-h-11 w-full items-center justify-between gap-3 border-0 border-b border-bg1 bg-transparent px-3 text-left text-fg">
-                      <span>{r.name} <span className="font-mono text-xs text-muted">{r.maskedDocument}</span></span>
-                      {r.blocked && <Badge color="#fb4934">Bloqueado</Badge>}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-          {shown(fid('reader')) && <span className="text-[13px] text-red-text">{shown(fid('reader'))}</span>}
-        </fieldset>
+        <ReaderPicker id={fid('reader')} value={reader} onChange={setReader} error={shown(fid('reader'))} />
 
-        <TextField id={fid('assetCode')} label="Exemplar" required mono maxLength={50} autoComplete="off" placeholder="Ex.: PAT-0004" hint="Só exemplares disponíveis podem ser emprestados." error={shown(fid('assetCode'))} value={code} onChange={(e) => setCode(e.target.value)} />
+        <TextField id={fid('assetCode')} label="Exemplar" required mono maxLength={50} autoComplete="off" placeholder="Ex.: PAT-0004" hint="Só exemplares disponíveis, ou reservados para o próprio leitor, podem ser emprestados." error={shown(fid('assetCode'))} value={code} onChange={(e) => setCode(e.target.value)} />
         {copy.data && (
           <div className="flex flex-wrap items-center gap-2 rounded-md bg-bg0 px-3 py-2 text-sm">
             <span className="font-medium">{book.data?.title ?? 'Carregando livro…'}</span>
             <CopyStatusBadge status={copy.data.status} />
           </div>
+        )}
+        {copy.data?.status === 'RESERVED' && reservation.data && (
+          <p className="m-0 text-sm text-fg2">Reservado para {reservation.data.readerName ?? `leitor #${reservation.data.readerId}`}{reservation.data.pickupDeadline ? `, retirada até ${formatDate(reservation.data.pickupDeadline)}` : ''}.</p>
         )}
 
         <div className="flex flex-col gap-1 rounded-md bg-bg0 p-3 text-sm">
@@ -183,7 +168,7 @@ function NewLoan({ rules, onDone }: { rules?: { loanPeriodDays: number; loanLimi
         </div>
         <div className="flex flex-col gap-0.5 text-sm"><span className="text-xs text-muted">Operador responsável</span><span>{state.user?.displayName || state.user?.login}</span></div>
         <div className="flex justify-end gap-3">
-          <Button onClick={() => { setReader(null); setReaderQuery(''); setCode(''); setSubmitted(false); setDone(false) }}>Cancelar</Button>
+          <Button onClick={() => { setReader(null); setCode(''); setSubmitted(false); setDone(false) }}>Cancelar</Button>
           <Button type="submit" variant="primary" disabled={register.isPending}>Registrar empréstimo</Button>
         </div>
       </form>
