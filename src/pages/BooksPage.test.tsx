@@ -1,0 +1,148 @@
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router'
+import { BooksPage } from './BooksPage'
+import { mockApi, pageOf } from '../test/mockApi'
+
+const auth = vi.hoisted(() => ({ isAdmin: true }))
+vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
+
+const ISBN = '9788533302273'
+const renderBooks = () =>
+  render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter>
+        <BooksPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  )
+
+const found = {
+  isbn: ISBN,
+  outcome: 'FOUND',
+  message: 'Dados sugeridos pela fonte externa.',
+  suggestion: { title: 'Dom Casmurro', publisher: 'Garnier', publicationYear: 1899, authors: [{ name: 'Machado de Assis', existingAuthorId: 7 }, { name: 'Fulano' }] },
+}
+const typeIsbn = async () => {
+  await userEvent.type(await screen.findByLabelText(/^ISBN/), ISBN)
+  await userEvent.tab()
+}
+
+afterEach(() => {
+  vi.restoreAllMocks()
+  auth.isAdmin = true
+})
+
+describe('livros: lookup de ISBN', () => {
+  it('pré-preenche o formulário e seleciona o autor que já existe', async () => {
+    mockApi({ 'GET /api/v1/books/lookup': () => ({ json: found }) })
+    renderBooks()
+    await typeIsbn()
+    expect(await screen.findByDisplayValue('Dom Casmurro')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Garnier')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('1899')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remover Machado de Assis' })).toBeInTheDocument()
+    expect(screen.getByText('Dados sugeridos pela fonte externa.')).toBeInTheDocument()
+  })
+
+  it('não sobrescreve o que o operador já digitou', async () => {
+    mockApi({ 'GET /api/v1/books/lookup': () => ({ json: found }) })
+    renderBooks()
+    await userEvent.type(await screen.findByLabelText(/^Título/), 'Meu título')
+    await typeIsbn()
+    expect(await screen.findByDisplayValue('Garnier')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('Meu título')).toBeInTheDocument()
+  })
+
+  it('cadastra e seleciona o autor sugerido que ainda não existe', async () => {
+    const calls = mockApi({
+      'GET /api/v1/books/lookup': () => ({ json: found }),
+      'POST /api/v1/authors': () => ({ status: 201, json: { id: 31, name: 'Fulano', active: true } }),
+    })
+    renderBooks()
+    await typeIsbn()
+    await userEvent.click(await screen.findByRole('button', { name: /Cadastrar e selecionar/ }))
+    expect(await screen.findByRole('button', { name: 'Remover Fulano' })).toBeInTheDocument()
+    expect(calls.find((c) => c.key === 'POST /api/v1/authors')?.body).toEqual({ name: 'Fulano' })
+  })
+
+  it('avisa do ISBN já cadastrado e filtra a lista pelo livro', async () => {
+    const calls = mockApi({
+      'GET /api/v1/books/lookup': () => ({ json: { isbn: ISBN, outcome: 'ALREADY_REGISTERED', message: 'Este ISBN já está cadastrado.', registeredBookId: 4 } }),
+      'GET /api/v1/books/4': () => ({ json: { id: 4, isbn: ISBN, title: 'Dom Casmurro', active: false } }),
+    })
+    renderBooks()
+    await typeIsbn()
+    expect(await screen.findByText('Este ISBN já está cadastrado.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Ver livro já cadastrado' }))
+    expect(await screen.findByLabelText('Filtrar por ISBN')).toHaveValue(ISBN)
+    await waitFor(() => {
+      const last = calls.filter((c) => c.key === 'GET /api/v1/books').at(-1)!
+      expect(last.url.searchParams.get('isbn')).toBe(ISBN)
+      expect(last.url.searchParams.get('active')).toBe('false')
+    })
+  })
+
+  it('NOT_FOUND mostra o aviso e deixa o cadastro manual', async () => {
+    mockApi({ 'GET /api/v1/books/lookup': () => ({ json: { isbn: ISBN, outcome: 'NOT_FOUND', message: 'Nada encontrado. Cadastre à mão.' } }) })
+    renderBooks()
+    await typeIsbn()
+    expect(await screen.findByText('Nada encontrado. Cadastre à mão.')).toBeInTheDocument()
+    expect(screen.getByLabelText(/^Título/)).toHaveValue('')
+  })
+
+  it('falha na consulta não impede o cadastro', async () => {
+    mockApi({ 'GET /api/v1/books/lookup': () => ({ status: 503, json: { detail: 'fora do ar' } }) })
+    renderBooks()
+    await typeIsbn()
+    expect(await screen.findByText(/Preencha os dados à mão/)).toBeInTheDocument()
+  })
+
+  it('ISBN inválido não consulta a API', async () => {
+    const calls = mockApi({})
+    renderBooks()
+    await userEvent.type(await screen.findByLabelText(/^ISBN/), '9788533302274')
+    await userEvent.tab()
+    expect(calls.some((c) => c.key === 'GET /api/v1/books/lookup')).toBe(false)
+  })
+})
+
+describe('livros: filtros e reativação', () => {
+  it('envia autor, ISBN e categoria na busca', async () => {
+    const calls = mockApi({ 'GET /api/v1/categories': () => ({ json: pageOf([{ id: 3, name: 'Romance', active: true }]) }) })
+    renderBooks()
+    await userEvent.type(await screen.findByLabelText('Filtrar por autor'), 'machado')
+    await userEvent.selectOptions(await screen.findByLabelText('Filtrar por categoria'), 'Romance')
+    await waitFor(() => {
+      const q = calls.filter((c) => c.key === 'GET /api/v1/books').at(-1)!.url.searchParams
+      expect(q.get('author')).toBe('machado')
+      expect(q.get('categoryId')).toBe('3')
+    })
+  })
+
+  const inactiveBook = {
+    id: 4, isbn: ISBN, title: 'Dom Casmurro', active: false, availableCopies: 0, totalCopies: 0, categoryId: 3, authorIds: [7],
+    category: { id: 3, name: 'Romance' }, authors: [{ id: 7, name: 'Machado de Assis' }],
+  }
+
+  it('administrador reativa o livro e vê a recusa da API', async () => {
+    mockApi({
+      'GET /api/v1/books': () => ({ json: pageOf([inactiveBook]) }),
+      'POST /api/v1/books/4/reactivate': () => ({ status: 422, json: { detail: 'A categoria Romance está inativa.' } }),
+    })
+    renderBooks()
+    await userEvent.click(await screen.findByRole('button', { name: 'Inativos' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Reativar/ }))
+    expect(await screen.findByText('A categoria Romance está inativa.')).toBeInTheDocument()
+  })
+
+  it('operador não vê o botão de reativar', async () => {
+    auth.isAdmin = false
+    mockApi({ 'GET /api/v1/books': () => ({ json: pageOf([inactiveBook]) }) })
+    renderBooks()
+    await userEvent.click(await screen.findByRole('button', { name: 'Inativos' }))
+    expect(await screen.findByText('Dom Casmurro')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Reativar/ })).not.toBeInTheDocument()
+  })
+})

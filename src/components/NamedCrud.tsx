@@ -3,7 +3,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { z } from 'zod'
-import { errorMessage } from '../api/client'
+import { errorMessage, existingAuthorId } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 import type { Paged } from '../api/types'
 import { errorItems, errorTitle, fid } from '../lib/form'
 import { useDebounced } from '../lib/useDebounced'
@@ -22,13 +23,16 @@ type Props = {
   queryKey: string
   schema: z.ZodType<Values, Values>
   list: (q: { name?: string; active: boolean; page: number }) => Promise<Paged<Item>>
-  create: (name: string) => Promise<unknown>
-  update: (id: number, name: string) => Promise<unknown>
+  /** `allowDuplicate` confirms a homonym; only authors use it (the API answers 422 with `existingAuthorId`). */
+  create: (name: string, allowDuplicate: boolean) => Promise<unknown>
+  update: (id: number, name: string, allowDuplicate: boolean) => Promise<unknown>
   remove: (id: number) => Promise<unknown>
+  reactivate: (id: number, allowDuplicate: boolean) => Promise<unknown>
 }
 
 export function NamedCrud(p: Props) {
   const qc = useQueryClient()
+  const { isAdmin } = useAuth()
   const [search, setSearch] = useState('')
   const [active, setActive] = useState<'true' | 'false'>('true')
   const [page, setPage] = useState(0)
@@ -47,7 +51,7 @@ export function NamedCrud(p: Props) {
   const invalidate = () => qc.invalidateQueries({ queryKey: [p.queryKey] })
 
   const save = useMutation({
-    mutationFn: (v: Values) => (editing ? p.update(editing.id, v.name) : p.create(v.name)),
+    mutationFn: (v: Values & { allowDuplicate?: boolean }) => (editing ? p.update(editing.id, v.name, !!v.allowDuplicate) : p.create(v.name, !!v.allowDuplicate)),
     onSuccess: () => {
       setDone(`${p.noun.charAt(0).toUpperCase()}${p.noun.slice(1)} salv${p.article}.`)
       setEditing(null)
@@ -62,6 +66,14 @@ export function NamedCrud(p: Props) {
       void invalidate()
     },
   })
+
+  const reactivate = useMutation({
+    mutationFn: (v: { item: Item; allowDuplicate?: boolean }) => p.reactivate(v.item.id, !!v.allowDuplicate),
+    onSuccess: () => void invalidate(),
+  })
+  // The homonym 422 is not a failure to report: it asks the operator to confirm.
+  const saveHomonym = existingAuthorId(save.error) !== undefined
+  const reactivateHomonym = existingAuthorId(reactivate.error) !== undefined
 
   const items = errorItems(errors, { name: 'Nome' })
   const startEdit = (item: Item) => {
@@ -81,6 +93,7 @@ export function NamedCrud(p: Props) {
       <div className="flex flex-wrap items-start gap-6">
         <Card className="flex-[2_1_520px]">
           <Pills value={active} onChange={(v) => { setActive(v); setPage(0) }} options={[{ value: 'true', label: 'Ativos' }, { value: 'false', label: 'Inativos' }]} />
+          {reactivate.isError && !reactivateHomonym && <Banner kind="error">{errorMessage(reactivate.error)}</Banner>}
           {query.isPending && <Spinner />}
           {query.isError && <Banner kind="error">{errorMessage(query.error)}</Banner>}
           {query.data && query.data.items.length === 0 && <EmptyState>Nada por aqui.</EmptyState>}
@@ -96,11 +109,13 @@ export function NamedCrud(p: Props) {
                     header: 'Ações',
                     width: '1fr',
                     label: false,
-                    cell: (i) => i.active && (
+                    cell: (i) => i.active ? (
                       <div className="flex gap-1">
                         <IconButton label={`Editar ${i.name}`} onClick={() => startEdit(i)}><Icon name="edit" size={18} /></IconButton>
                         <IconButton label={`Inativar ${i.name}`} onClick={() => setRemoving(i)} style={{ color: '#fe8019' }}><Icon name="ban" size={18} /></IconButton>
                       </div>
+                    ) : isAdmin && (
+                      <Button small disabled={reactivate.isPending} onClick={() => reactivate.mutate({ item: i })}>Reativar<span className="sr-only"> {i.name}</span></Button>
                     ),
                   },
                 ]}
@@ -114,7 +129,7 @@ export function NamedCrud(p: Props) {
           <form noValidate onSubmit={handleSubmit((v) => save.mutate(v))} className="flex flex-col gap-4">
             <RequiredNote />
             {done && !save.isPending && <Banner kind="success">{done}</Banner>}
-            {save.isError && <Banner kind="error">{errorMessage(save.error)}</Banner>}
+            {save.isError && !saveHomonym && <Banner kind="error">{errorMessage(save.error)}</Banner>}
             <ErrorSummary title={errorTitle(items.length, `salvar ${p.article} ${p.noun}`)} items={items} />
             <TextField id={fid('name')} label="Nome" required placeholder={p.namePlaceholder} error={errors.name?.message} {...register('name')} />
             <div className="flex justify-end gap-3">
@@ -124,6 +139,26 @@ export function NamedCrud(p: Props) {
           </form>
         </FormCard>
       </div>
+
+      {saveHomonym && (
+        <Dialog title="Nome já cadastrado" onClose={() => save.reset()}>
+          <p className="m-0 text-sm text-fg2">{errorMessage(save.error)} Salvar mesmo assim, como um homônimo?</p>
+          <div className="flex justify-end gap-3">
+            <Button onClick={() => save.reset()}>Voltar</Button>
+            <Button variant="primary" disabled={save.isPending} onClick={() => save.mutate({ name: form.getValues('name'), allowDuplicate: true })}>Salvar mesmo assim</Button>
+          </div>
+        </Dialog>
+      )}
+
+      {reactivateHomonym && reactivate.variables && (
+        <Dialog title="Nome já cadastrado" onClose={() => reactivate.reset()}>
+          <p className="m-0 text-sm text-fg2">{errorMessage(reactivate.error)} Reativar mesmo assim, como um homônimo?</p>
+          <div className="flex justify-end gap-3">
+            <Button onClick={() => reactivate.reset()}>Voltar</Button>
+            <Button variant="primary" disabled={reactivate.isPending} onClick={() => reactivate.mutate({ item: reactivate.variables!.item, allowDuplicate: true })}>Reativar mesmo assim</Button>
+          </div>
+        </Dialog>
+      )}
 
       {removing && (
         <Dialog title={`Inativar ${p.noun}`} onClose={() => setRemoving(null)}>

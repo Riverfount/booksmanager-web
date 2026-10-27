@@ -15,5 +15,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    // Node cannot build a Request from a relative URL; tests answer through a mocked fetch anyway.
+    env: { VITE_API_URL: 'http://localhost' },
   },
 })

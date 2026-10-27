@@ -16,6 +16,7 @@ export function CategoriesPage() {
       create={(name) => call(api.POST('/api/v1/categories', { body: { name } }))}
       update={(id, name) => call(api.PATCH('/api/v1/categories/{id}', { params: { path: { id } }, body: { name } }))}
       remove={(id) => call(api.DELETE('/api/v1/categories/{id}', { params: { path: { id } } }))}
+      reactivate={(id) => call(api.POST('/api/v1/categories/{id}/reactivate', { params: { path: { id } } }))}
     />
   )
 }

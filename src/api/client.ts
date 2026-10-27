@@ -8,10 +8,13 @@ export const API_URL: string = import.meta.env.VITE_API_URL ?? ''
 /** Erro de API já com mensagem em português pronta para mostrar. */
 export class ApiError extends Error {
   status: number
-  constructor(message: string, status: number) {
+  /** Id do autor que já tem o nome, nos 422 de homônimo (cadastro, edição e reativação de autor). */
+  existingAuthorId?: number
+  constructor(message: string, status: number, existingAuthorId?: number) {
     super(message)
     this.name = 'ApiError'
     this.status = status
+    this.existingAuthorId = existingAuthorId
   }
 }
 
@@ -36,7 +39,8 @@ const authMiddleware: Middleware = {
   },
 }
 
-export const api = createClient<paths>({ baseUrl: API_URL })
+// Resolves `fetch` on each call (not once, at creation) so tests can replace it.
+export const api = createClient<paths>({ baseUrl: API_URL, fetch: (request) => globalThis.fetch(request) })
 api.use(authMiddleware)
 
 type Result<T> = { data?: T; error?: unknown; response: Response }
@@ -63,10 +67,17 @@ export async function call<T>(request: Promise<Result<T>>): Promise<T> {
   } catch {
     throw new ApiError('Sem conexão com o servidor. Verifique a rede e tente de novo.', 0)
   }
-  if (!result.response.ok) throw new ApiError(messageFor(result.response.status, result.error), result.response.status)
+  if (!result.response.ok) {
+    const { status } = result.response
+    const existing = (result.error as { existingAuthorId?: unknown } | undefined)?.existingAuthorId
+    throw new ApiError(messageFor(status, result.error), status, status === 422 && typeof existing === 'number' ? existing : undefined)
+  }
   return result.data as T
 }
 
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Não foi possível concluir. Tente novamente.'
 }
+
+/** Id do autor homônimo quando o erro é o 422 de nome duplicado; indefinido nos demais erros. */
+export const existingAuthorId = (error: unknown): number | undefined => (error instanceof ApiError ? error.existingAuthorId : undefined)
