@@ -37,7 +37,7 @@ O backend precisa estar no ar (`./mvnw spring-boot:run` com o Docker Compose do 
 - O refresh token vem em cookie `httpOnly`. Ao recarregar a página, o front chama `/auth/refresh` para recuperar a sessão.
 - Uma resposta 401 dispara uma renovação automática e repete a chamada uma vez.
 - As rotas `/auth/*` levam o cabeçalho `X-Requested-With: XMLHttpRequest` (proteção CSRF exigida pelo backend).
-- O nome e o perfil do usuário logado vêm de `GET /api/v1/users/me`. As telas de **Usuários** e **Configuração** só aparecem para `ADMIN`; o backend continua sendo quem autoriza.
+- O nome e o perfil do usuário logado vêm de `GET /api/v1/users/me`. As telas de **Usuários**, **Auditoria** e **Configuração** só aparecem para `ADMIN`; o backend continua sendo quem autoriza.
 
 ## Telas
 
@@ -53,6 +53,7 @@ O backend precisa estar no ar (`./mvnw spring-boot:run` com o Docker Compose do 
 | `/reservas` | Reservas por situação, leitor e livro (fila em ordem de chegada); reservar livro sem exemplar disponível e cancelar | todos |
 | `/relatorios` | Empréstimos em atraso, livros mais emprestados (por período, até 366 dias) e situação do acervo; exportação em PDF e CSV só para ADMIN | todos |
 | `/multas` | Multas (pagar, abonar com justificativa) e suspensões (encerrar antes do prazo) | todos |
+| `/auditoria` | Trilha de auditoria (quem fez o quê e quando), com filtros por usuário, ação, alvo e período | ADMIN |
 | `/usuarios` | Usuários, perfil, bloqueio, redefinição de senha | ADMIN |
 | `/configuracao` | Política de penalidade (multa, suspensão, ambas ou nenhuma), prazos e limites | ADMIN |
 
@@ -82,7 +83,7 @@ src/
 ## Limitações conhecidas
 
 - Os selects de categoria carregam até 100 itens (limite de página da API).
-- Ainda não há tela de auditoria nem o portal do leitor (`/me/*`), embora o backend já exponha os endpoints.
+- Ainda não há o portal do leitor (`/me/*`), embora o backend já exponha os endpoints.
 - O ideal é revisar as telas contra o contrato real depois de rodar `npm run api:types`.
 
 ## Licença

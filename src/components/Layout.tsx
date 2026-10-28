@@ -16,6 +16,7 @@ const items: Item[] = [
   { to: '/multas', label: 'Multas e suspensões', icon: 'fines' },
   { to: '/relatorios', label: 'Relatórios', icon: 'report' },
   { to: '/usuarios', label: 'Usuários', icon: 'users', admin: true },
+  { to: '/auditoria', label: 'Auditoria', icon: 'lock', admin: true },
   { to: '/configuracao', label: 'Configuração', icon: 'gear', admin: true },
 ]
 
