@@ -33,5 +33,5 @@ A CI (`.github/workflows/ci.yml`) roda `lint`, `typecheck`, `test` e `build`, ne
 ## Pontos de atenção
 
 - Rode `npm run api:types` antes de usar endpoints novos do backend: o `schema.d.ts` só acompanha o contrato até a última vez que foi regerado.
-- Os selects de categoria carregam no máximo 100 itens (limite de página da API).
+- Em livros (formulário e filtro), a categoria é escolhida por busca (`components/CategoryPicker.tsx`, até 5 resultados por consulta). Só o filtro do catálogo do leitor (`/meu`) ainda usa um select, que carrega no máximo 100 categorias (limite de página da API).
 - A revisão de livros e autores contra a API está em `.claude/revisao.md`, com os problemas conhecidos e a ordem sugerida.
