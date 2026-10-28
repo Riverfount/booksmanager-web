@@ -24,4 +24,18 @@ describe('call', () => {
     const error = await call(failure(400, { existingAuthorId: 3 })).catch((e: unknown) => e)
     expect(existingAuthorId(error)).toBeUndefined()
   })
+
+  it('guarda a lista errors do 400, com os campos que falharam', async () => {
+    const errors = [{ field: 'publicationYear', message: 'o ano é inválido' }, { message: 'dados incompletos' }]
+    const error = await call(failure(400, { detail: 'Dados inválidos.', errors })).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).fieldErrors).toEqual(errors)
+  })
+
+  it('ignora a lista errors fora do 400 e quando ela não é uma lista', async () => {
+    const other = await call(failure(422, { detail: 'Regra', errors: [{ field: 'x', message: 'y' }] })).catch((e: unknown) => e)
+    expect((other as ApiError).fieldErrors).toBeUndefined()
+    const malformed = await call(failure(400, { errors: 'não é lista' })).catch((e: unknown) => e)
+    expect((malformed as ApiError).fieldErrors).toBeUndefined()
+  })
 })

@@ -6,7 +6,7 @@ import type { z } from 'zod'
 import { errorMessage, existingAuthorId } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type { Paged } from '../api/types'
-import { errorItems, errorTitle, fid } from '../lib/form'
+import { applyServerErrors, errorItems, errorTitle, fid, serverErrors } from '../lib/form'
 import { useDebounced } from '../lib/useDebounced'
 import { Badge, Banner, Button, Card, Dialog, ErrorSummary, FormCard, IconButton, PageHeader, Pagination, Pills, RequiredNote, SearchInput, Spinner, TextField, EmptyState, DataTable } from './ui'
 import { Icon } from './Icon'
@@ -47,11 +47,12 @@ export function NamedCrud(p: Props) {
   })
 
   const form = useForm<Values>({ resolver: zodResolver(p.schema), defaultValues: { name: '' } })
-  const { register, handleSubmit, reset, formState: { errors } } = form
+  const { register, handleSubmit, reset, setError, formState: { errors } } = form
   const invalidate = () => qc.invalidateQueries({ queryKey: [p.queryKey] })
 
   const save = useMutation({
     mutationFn: (v: Values & { allowDuplicate?: boolean }) => (editing ? p.update(editing.id, v.name, !!v.allowDuplicate) : p.create(v.name, !!v.allowDuplicate)),
+    onError: (error) => applyServerErrors(serverErrors(error, { name: 'name' }), setError),
     onSuccess: () => {
       setDone(`${p.noun.charAt(0).toUpperCase()}${p.noun.slice(1)} salv${p.article}.`)
       setEditing(null)
@@ -74,6 +75,7 @@ export function NamedCrud(p: Props) {
   // The homonym 422 is not a failure to report: it asks the operator to confirm.
   const saveHomonym = existingAuthorId(save.error) !== undefined
   const reactivateHomonym = existingAuthorId(reactivate.error) !== undefined
+  const serverBanner = save.isError && !saveHomonym ? serverErrors(save.error, { name: 'name' }).banner : undefined
 
   const items = errorItems(errors, { name: 'Nome' })
   const startEdit = (item: Item) => {
@@ -129,7 +131,7 @@ export function NamedCrud(p: Props) {
           <form noValidate onSubmit={handleSubmit((v) => save.mutate(v))} className="flex flex-col gap-4">
             <RequiredNote />
             {done && !save.isPending && <Banner kind="success">{done}</Banner>}
-            {save.isError && !saveHomonym && <Banner kind="error">{errorMessage(save.error)}</Banner>}
+            {serverBanner && <Banner kind="error">{serverBanner}</Banner>}
             <ErrorSummary title={errorTitle(items.length, `salvar ${p.article} ${p.noun}`)} items={items} />
             <TextField id={fid('name')} label="Nome" required placeholder={p.namePlaceholder} error={errors.name?.message} {...register('name')} />
             <div className="flex justify-end gap-3">

@@ -270,3 +270,56 @@ describe('livros: categoria por busca', () => {
     expect((await screen.findAllByText('Selecione a categoria do livro.')).length).toBeGreaterThan(0)
   })
 })
+
+describe('livros: erros do servidor nos campos', () => {
+  const routes = {
+    'GET /api/v1/books/lookup': () => ({ json: { isbn: ISBN, outcome: 'NOT_FOUND', message: 'Nada encontrado.' } }),
+    'GET /api/v1/categories': () => ({ json: pageOf([{ id: 3, name: 'Romance', active: true }]) }),
+    'GET /api/v1/authors': () => ({ json: pageOf([{ id: 7, name: 'Machado de Assis', active: true }]) }),
+  }
+  const fillAndSave = async () => {
+    await typeIsbn()
+    await userEvent.type(screen.getByLabelText(/^Título/), 'Dom Casmurro')
+    await userEvent.type(screen.getByLabelText(/^Editora/), 'Garnier')
+    await userEvent.type(screen.getByLabelText(/^Ano/), '1899')
+    await userEvent.type(screen.getByLabelText('Buscar categoria pelo nome'), 'rom')
+    await userEvent.click(await within(screen.getByLabelText('Buscar categoria pelo nome').closest('fieldset')!).findByRole('button', { name: 'Romance' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Machado de Assis' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar livro' }))
+  }
+
+  it('ISBN duplicado (422) marca o campo do ISBN, sem banner', async () => {
+    mockApi({ ...routes, 'POST /api/v1/books': () => ({ status: 422, json: { detail: `já existe um livro com o ISBN '${ISBN}'` } }) })
+    renderBooks()
+    await fillAndSave()
+    expect(await screen.findByText('Corrija 1 campo para salvar o livro.')).toBeInTheDocument()
+    const isbn = screen.getByLabelText(/^ISBN/)
+    expect(isbn).toHaveAttribute('aria-invalid', 'true')
+    expect(isbn).toHaveAccessibleDescription(new RegExp(`Já existe um livro com o ISBN '${ISBN}'`))
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+  })
+
+  it('400 com errors marca cada campo do formulário (publicationYear vira Ano)', async () => {
+    mockApi({
+      ...routes,
+      'POST /api/v1/books': () => ({
+        status: 400,
+        json: { detail: 'Dados inválidos.', errors: [{ field: 'publicationYear', message: 'o ano de publicação é inválido' }, { field: 'publisher', message: 'a editora é inválida' }] },
+      }),
+    })
+    renderBooks()
+    await fillAndSave()
+    expect(await screen.findByText('Corrija 2 campos para salvar o livro.')).toBeInTheDocument()
+    expect(screen.getByLabelText(/^Ano/)).toHaveAccessibleDescription('O ano de publicação é inválido')
+    expect(screen.getByLabelText(/^Editora/)).toHaveAccessibleDescription('A editora é inválida')
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+  })
+
+  it('erro que não é de campo continua no banner', async () => {
+    mockApi({ ...routes, 'POST /api/v1/books': () => ({ status: 422, json: { detail: 'A categoria Romance está inativa.' } }) })
+    renderBooks()
+    await fillAndSave()
+    expect(await screen.findByText('A categoria Romance está inativa.')).toBeInTheDocument()
+    expect(screen.queryByText(/Corrija/)).not.toBeInTheDocument()
+  })
+})

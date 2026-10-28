@@ -5,16 +5,21 @@ import { getAccessToken } from '../auth/tokenStore'
 
 export const API_URL: string = import.meta.env.VITE_API_URL ?? ''
 
+export type FieldError = { field?: string; message: string }
+
 /** Erro de API já com mensagem em português pronta para mostrar. */
 export class ApiError extends Error {
   status: number
   /** Id do autor que já tem o nome, nos 422 de homônimo (cadastro, edição e reativação de autor). */
   existingAuthorId?: number
-  constructor(message: string, status: number, existingAuthorId?: number) {
+  /** Campos que falharam, nos 400 de requisição inválida (`field` falta quando o erro é do objeto inteiro). */
+  fieldErrors?: FieldError[]
+  constructor(message: string, status: number, existingAuthorId?: number, fieldErrors?: FieldError[]) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.existingAuthorId = existingAuthorId
+    this.fieldErrors = fieldErrors
   }
 }
 
@@ -70,7 +75,8 @@ export async function call<T>(request: Promise<Result<T>>): Promise<T> {
   if (!result.response.ok) {
     const { status } = result.response
     const existing = (result.error as { existingAuthorId?: unknown } | undefined)?.existingAuthorId
-    throw new ApiError(messageFor(status, result.error), status, status === 422 && typeof existing === 'number' ? existing : undefined)
+    const errors = (result.error as { errors?: unknown } | undefined)?.errors
+    throw new ApiError(messageFor(status, result.error), status, status === 422 && typeof existing === 'number' ? existing : undefined, status === 400 && Array.isArray(errors) ? (errors as FieldError[]) : undefined)
   }
   return result.data as T
 }
