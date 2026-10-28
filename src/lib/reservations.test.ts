@@ -1,4 +1,4 @@
-import { lendingIssue, reservationState } from './reservations'
+import { lendingIssue, reservationState, reservedMessage } from './reservations'
 
 describe('reservationState', () => {
   it('reserva que espera exemplar mostra o lugar na fila', () => {
@@ -6,6 +6,10 @@ describe('reservationState', () => {
   })
   it('reserva que segura exemplar', () => {
     expect(reservationState({ status: 'ACTIVE', copyId: 9 }).label).toBe('Exemplar guardado')
+  })
+  it('reserva do leitor não traz o exemplar: o prazo de retirada indica que há um guardado', () => {
+    expect(reservationState({ status: 'ACTIVE', pickupDeadline: '2026-11-05' }).label).toBe('Exemplar guardado')
+    expect(reservationState({ status: 'ACTIVE', queuePosition: 1 }).label).toBe('Na fila · 1º')
   })
   it('situações encerradas', () => {
     expect(reservationState({ status: 'FULFILLED' }).label).toBe('Retirada')
@@ -30,5 +34,12 @@ describe('lendingIssue', () => {
     expect(lendingIssue('BORROWED', undefined, 1)).toBe('unavailable')
     expect(lendingIssue('DAMAGED', undefined, 1)).toBe('unavailable')
     expect(lendingIssue('LOST', undefined, 1)).toBe('unavailable')
+  })
+})
+
+describe('reservedMessage', () => {
+  it('diz o lugar na fila quando a resposta o traz', () => {
+    expect(reservedMessage(3)).toBe('Reserva registrada: lugar 3 na fila.')
+    expect(reservedMessage(undefined)).toBe('Reserva registrada.')
   })
 })

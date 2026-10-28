@@ -17,11 +17,11 @@ A CI (`.github/workflows/ci.yml`) roda `lint`, `typecheck`, `test` e `build`, ne
 
 - **Cliente da API** (`src/api/client.ts`): `openapi-fetch` tipado por `schema.d.ts`. Toda chamada passa por `call(api.GET(...))`, que devolve o dado ou lança `ApiError` com a mensagem em português: usa o `detail` do `ProblemDetail` (RFC 9457) da API e, na falta dele, um texto por status. `errorMessage(error)` é o que as telas mostram. `src/api/types.ts` dá apelidos aos tipos do schema (`Book`, `Author`...): prefira-os a redeclarar tipos.
 - **Sessão** (`src/auth/`): o access token (JWT de 15 min) vive **só em memória** (`tokenStore.ts`), nunca em `localStorage`. O refresh token é cookie `httpOnly`; por isso front e API precisam estar na mesma origem (proxy do Vite em dev, proxy reverso em produção). As rotas `/auth/*` levam `X-Requested-With: XMLHttpRequest` (CSRF exigido pelo backend). Um 401 faz o middleware do cliente renovar o token (`refreshSession`, que junta chamadas simultâneas) e repetir a requisição uma vez.
-- **Rotas** (`src/App.tsx`): páginas carregadas com `lazy`, dentro de `RequireAuth` e `Layout`; `usuarios` e `configuracao` ficam atrás de `RequireAdmin` (só esconde a tela; a autorização real é do backend). Uma página por rota em `src/pages/`.
+- **Rotas** (`src/App.tsx`): páginas carregadas com `lazy`. Telas públicas (`/login`, `/convite`, `/esqueci-senha`, `/redefinir-senha`) ficam fora da sessão. Depois de `RequireAuth`, o perfil separa duas áreas: `RequireStaff` + `Layout` para operador e administrador, e `RequireReader` + `ReaderLayout` para o leitor, em `/meu/*` (telas em `src/pages/reader/`). Um perfil que cai na área do outro é redirecionado. `usuarios`, `auditoria` e `configuracao` ficam atrás de `RequireAdmin` (só esconde a tela; a autorização real é do backend). Uma página por rota em `src/pages/`.
 - **Dados do servidor**: TanStack Query. Convenção de `queryKey`: `[recurso, ...filtros]` (ex.: `['books', title, active, page]`); invalidar pelo prefixo (`['books']`) cobre todas as variações. Estado global só para o usuário logado (Context); sem Redux/Zustand.
 - **Formulários**: React Hook Form + Zod, com schemas centralizados em `src/lib/schemas.ts`. O padrão se repete nas telas: `errorItems`/`errorTitle` (`src/lib/form.ts`) montam o resumo de erros no topo, e `fid(nome)` gera o id do campo para o resumo ancorar nele. Máscaras (CPF, telefone, ISBN, ano) ficam em `src/lib/masks.ts`.
 - **CRUD de nome simples**: `components/NamedCrud.tsx` serve autores e categorias (lista, busca, ativos/inativos, formulário, inativação). `BooksPage` e as demais telas são escritas à mão.
-- **Inativação**: o backend nunca exclui (RN14); `DELETE` significa inativar, e não existe endpoint de reativação.
+- **Inativação**: o backend nunca exclui (RN14); `DELETE` significa inativar. A reativação é `POST /{id}/reactivate` e só o administrador pode (livros, autores, categorias e exemplares).
 - **PATCH parcial**: o backend lê campo ausente/nulo como "manter o valor atual", então o front não consegue limpar um campo opcional (ex.: editora, ano do livro).
 
 ## Convenções
@@ -32,6 +32,6 @@ A CI (`.github/workflows/ci.yml`) roda `lint`, `typecheck`, `test` e `build`, ne
 
 ## Pontos de atenção
 
-- O README diz que `schema.d.ts` foi escrito à mão, mas o arquivo atual tem a cara do contrato oficial. De qualquer forma ele está **desatualizado**: não tem o `GET /api/v1/books/lookup` (RF06). Rode `npm run api:types` antes de usar endpoints novos do backend.
+- Rode `npm run api:types` antes de usar endpoints novos do backend: o `schema.d.ts` só acompanha o contrato até a última vez que foi regerado.
 - Os selects de categoria carregam no máximo 100 itens (limite de página da API).
 - A revisão de livros e autores contra a API está em `.claude/revisao.md`, com os problemas conhecidos e a ordem sugerida.

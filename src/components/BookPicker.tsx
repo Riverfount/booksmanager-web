@@ -7,13 +7,16 @@ import { Badge, Button } from './ui'
 export type BookChoice = { id: number; title: string; availableCopies: number }
 
 /** Book by title search: up to 5 results with their availability; the chosen book shows with a "Trocar" button. */
-export function BookPicker({ id, label = 'Livro', required = true, searchLabel = 'Buscar livro pelo título', value, onChange, error }: { id: string; label?: string; required?: boolean; searchLabel?: string; value: BookChoice | null; onChange: (b: BookChoice | null) => void; error?: string }) {
+export function BookPicker({ id, label = 'Livro', required = true, searchLabel = 'Buscar livro pelo título', reader = false, value, onChange, error }: { id: string; label?: string; required?: boolean; searchLabel?: string; reader?: boolean; value: BookChoice | null; onChange: (b: BookChoice | null) => void; error?: string }) {
   const [query, setQuery] = useState('')
   const q = useDebounced(query.trim())
   const books = useQuery({
-    queryKey: ['books', 'picker', q],
+    queryKey: [reader ? 'me' : 'books', 'books', 'picker', q],
     enabled: q.length > 0 && !value,
-    queryFn: () => call(api.GET('/api/v1/books', { params: { query: { title: q, size: 5, active: true } } })),
+    // The reader area searches the reader's own catalog (/me/books); both answer id, title and availableCopies.
+    queryFn: () => (reader
+      ? call(api.GET('/api/v1/me/books', { params: { query: { title: q, size: 5 } } }))
+      : call(api.GET('/api/v1/books', { params: { query: { title: q, size: 5, active: true } } }))),
   })
 
   return (

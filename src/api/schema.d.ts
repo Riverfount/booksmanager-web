@@ -4550,8 +4550,7 @@ export interface operations {
     };
     list_3: {
         parameters: {
-            query: {
-                readerId: number;
+            query?: {
                 /** @description ACTIVE, FULFILLED, CANCELLED ou EXPIRED; sem o parâmetro, todas */
                 status?: "ACTIVE" | "FULFILLED" | "CANCELLED" | "EXPIRED";
                 /** @description Número da página, a partir de 0 */
@@ -4610,9 +4609,7 @@ export interface operations {
     };
     reserve_1: {
         parameters: {
-            query: {
-                readerId: number;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -4690,9 +4687,7 @@ export interface operations {
     };
     cancel_1: {
         parameters: {
-            query: {
-                readerId: number;
-            };
+            query?: never;
             header?: never;
             path: {
                 id: number;
@@ -4759,9 +4754,7 @@ export interface operations {
     };
     renew: {
         parameters: {
-            query: {
-                readerId: number;
-            };
+            query?: never;
             header?: never;
             path: {
                 id: number;
@@ -8129,9 +8122,7 @@ export interface operations {
     };
     get_3: {
         parameters: {
-            query: {
-                readerId: number;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -8169,9 +8160,7 @@ export interface operations {
     };
     findById_7: {
         parameters: {
-            query: {
-                readerId: number;
-            };
+            query?: never;
             header?: never;
             path: {
                 id: number;
@@ -8220,8 +8209,7 @@ export interface operations {
     };
     list_10: {
         parameters: {
-            query: {
-                readerId: number;
+            query?: {
                 /** @description ACTIVE (ainda não devolvidos) ou RETURNED (encerrados); sem o parâmetro, ambos */
                 status?: "ACTIVE" | "RETURNED";
                 /**
@@ -8285,9 +8273,7 @@ export interface operations {
     };
     findById_8: {
         parameters: {
-            query: {
-                readerId: number;
-            };
+            query?: never;
             header?: never;
             path: {
                 id: number;

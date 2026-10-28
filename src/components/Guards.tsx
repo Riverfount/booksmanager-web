@@ -10,6 +10,20 @@ export function RequireAuth() {
   return <Outlet />
 }
 
+/** Operator and administrator screens: a reader who lands here is sent to the reader area. */
+export function RequireStaff() {
+  const { state } = useAuth()
+  if (state.user?.role === 'READER') return <Navigate to="/meu" replace />
+  return <Outlet />
+}
+
+/** The reader area: operators and administrators go back to the panel. */
+export function RequireReader() {
+  const { state } = useAuth()
+  if (state.user?.role !== 'READER') return <Navigate to="/" replace />
+  return <Outlet />
+}
+
 export function RequireAdmin() {
   const { isAdmin } = useAuth()
   if (!isAdmin) {

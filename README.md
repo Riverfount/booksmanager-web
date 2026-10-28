@@ -38,6 +38,7 @@ O backend precisa estar no ar (`./mvnw spring-boot:run` com o Docker Compose do 
 - Uma resposta 401 dispara uma renovação automática e repete a chamada uma vez.
 - As rotas `/auth/*` levam o cabeçalho `X-Requested-With: XMLHttpRequest` (proteção CSRF exigida pelo backend).
 - O nome e o perfil do usuário logado vêm de `GET /api/v1/users/me`. As telas de **Usuários**, **Auditoria** e **Configuração** só aparecem para `ADMIN`; o backend continua sendo quem autoriza.
+- O perfil `READER` não entra nas telas de operador: é levado para a área do leitor (`/meu`), e operador e administrador, na área do leitor, voltam ao painel.
 
 ## Telas
 
@@ -54,6 +55,7 @@ O backend precisa estar no ar (`./mvnw spring-boot:run` com o Docker Compose do 
 | `/relatorios` | Empréstimos em atraso, livros mais emprestados (por período, até 366 dias) e situação do acervo; exportação em PDF e CSV só para ADMIN | todos |
 | `/multas` | Multas (pagar, abonar com justificativa) e suspensões (encerrar antes do prazo) | todos |
 | `/auditoria` | Trilha de auditoria (quem fez o quê e quando), com filtros por usuário, ação, alvo e período | ADMIN |
+| `/meu` · `/meu/catalogo` · `/meu/emprestimos` · `/meu/reservas` | Área do leitor: situação (pode emprestar? multas, suspensão, limites), catálogo com disponibilidade e reserva, empréstimos com renovação, reservas (listar, reservar e cancelar) | READER |
 | `/usuarios` | Usuários, perfil, bloqueio, redefinição de senha | ADMIN |
 | `/configuracao` | Política de penalidade (multa, suspensão, ambas ou nenhuma), prazos e limites | ADMIN |
 
@@ -83,7 +85,6 @@ src/
 ## Limitações conhecidas
 
 - Os selects de categoria carregam até 100 itens (limite de página da API).
-- Ainda não há o portal do leitor (`/me/*`), embora o backend já exponha os endpoints.
 - O ideal é revisar as telas contra o contrato real depois de rodar `npm run api:types`.
 
 ## Licença
