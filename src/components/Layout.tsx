@@ -14,6 +14,7 @@ const items: Item[] = [
   { to: '/emprestimos', label: 'Empréstimos', icon: 'loans' },
   { to: '/reservas', label: 'Reservas', icon: 'bookmark' },
   { to: '/multas', label: 'Multas e suspensões', icon: 'fines' },
+  { to: '/relatorios', label: 'Relatórios', icon: 'report' },
   { to: '/usuarios', label: 'Usuários', icon: 'users', admin: true },
   { to: '/configuracao', label: 'Configuração', icon: 'gear', admin: true },
 ]

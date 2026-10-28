@@ -1,4 +1,4 @@
-type Handler = (req: { url: URL; method: string; body: unknown }) => { status?: number; json?: unknown }
+type Handler = (req: { url: URL; method: string; body: unknown }) => { status?: number; json?: unknown; headers?: Record<string, string> }
 
 const page = (items: unknown[] = []) => ({ items, page: 0, size: 20, totalItems: items.length, totalPages: 1 })
 export const pageOf = page
@@ -15,7 +15,7 @@ export function mockApi(routes: Record<string, Handler>) {
     const out = routes[key]?.({ url, method: req.method, body }) ?? { json: page() }
     const status = out.status ?? 200
     const noBody = status === 204 || status === 205
-    return new Response(noBody ? null : JSON.stringify(out.json ?? null), { status, headers: noBody ? undefined : { 'Content-Type': 'application/json' } })
+    return new Response(noBody ? null : JSON.stringify(out.json ?? null), { status, headers: noBody ? undefined : { 'Content-Type': 'application/json', ...out.headers } })
   })
   return calls
 }
