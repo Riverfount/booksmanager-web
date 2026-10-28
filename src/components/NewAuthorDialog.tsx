@@ -23,7 +23,8 @@ export function NewAuthorDialog({ initialName, onCreated, onClose }: { initialNa
     },
   })
   // The homonym 422 is not a failure to report: it asks the operator to confirm.
-  const homonym = existingAuthorId(save.error) !== undefined
+  const existingId = existingAuthorId(save.error)
+  const homonym = existingId !== undefined
 
   return createPortal(
     <Dialog title="Novo autor" onClose={onClose}>
@@ -39,10 +40,11 @@ export function NewAuthorDialog({ initialName, onCreated, onClose }: { initialNa
         <TextField label="Nome" required autoFocus autoComplete="off" maxLength={150} error={errors.name?.message} {...register('name')} />
         {homonym ? (
           <>
-            <p className="m-0 text-sm text-fg2">{errorMessage(save.error)} Cadastrar mesmo assim, como um homônimo?</p>
-            <div className="flex justify-end gap-3">
+            <p className="m-0 text-sm text-fg2">{errorMessage(save.error)} Use o autor que já existe ou cadastre este como um homônimo.</p>
+            <div className="flex flex-wrap justify-end gap-3">
               <Button onClick={() => save.reset()}>Voltar</Button>
-              <Button variant="primary" disabled={save.isPending} onClick={() => save.mutate({ name: getValues('name').trim(), allowDuplicate: true })}>Salvar mesmo assim</Button>
+              <Button disabled={save.isPending} onClick={() => save.mutate({ name: getValues('name').trim(), allowDuplicate: true })}>Salvar mesmo assim</Button>
+              <Button variant="primary" onClick={() => onCreated({ id: existingId, name: getValues('name').trim() })}>Usar autor existente</Button>
             </div>
           </>
         ) : (

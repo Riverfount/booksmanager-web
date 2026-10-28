@@ -13,6 +13,7 @@ function Harness() {
   return (
     <form onSubmit={(e) => { e.preventDefault(); parentSubmit() }}>
       <AuthorPicker id="authors" value={value} onChange={setValue} />
+      <output aria-label="ids selecionados">{value.map((a) => a.id).join(',')}</output>
     </form>
   )
 }
@@ -113,5 +114,44 @@ describe('AuthorPicker: cadastrar novo autor', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Cadastrar autor' }))
     expect(await within(dialog).findByText(/Falha ao cadastrar/)).toBeInTheDocument()
     await waitFor(() => expect(screen.getByRole('dialog')).toBeInTheDocument())
+  })
+
+  describe('homônimo: usar o autor existente', () => {
+    const homonym = { 'POST /api/v1/authors': () => ({ status: 422, json: { detail: 'Já existe um autor ativo com este nome.', existingAuthorId: 12 } }) }
+
+    it('seleciona o autor que a API apontou, sem criar outro', async () => {
+      const calls = mockApi(homonym)
+      renderPicker()
+      const dialog = await open('Ana')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cadastrar autor' }))
+      await userEvent.click(await within(dialog).findByRole('button', { name: 'Usar autor existente' }))
+      expect(await screen.findByRole('button', { name: 'Remover Ana' })).toBeInTheDocument()
+      expect(screen.getByLabelText('ids selecionados')).toHaveTextContent('12')
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(calls.filter((c) => c.key === 'POST /api/v1/authors')).toHaveLength(1)
+    })
+
+    it('não duplica o autor que já estava selecionado', async () => {
+      mockApi({
+        'GET /api/v1/authors': () => ({ json: { items: [{ id: 12, name: 'Ana', active: true }], page: 0, size: 5, totalItems: 1, totalPages: 1 } }),
+        ...homonym,
+      })
+      renderPicker()
+      await userEvent.click(await screen.findByRole('button', { name: 'Ana' }))
+      const dialog = await open('Ana')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cadastrar autor' }))
+      await userEvent.click(await within(dialog).findByRole('button', { name: 'Usar autor existente' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+      expect(screen.getByLabelText('ids selecionados')).toHaveTextContent(/^12$/)
+    })
+
+    it('só oferece a opção no homônimo, não em outros erros', async () => {
+      mockApi({ 'POST /api/v1/authors': () => ({ status: 500, json: { detail: 'Falha ao cadastrar.' } }) })
+      renderPicker()
+      const dialog = await open('Ana')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Cadastrar autor' }))
+      await within(dialog).findByText(/Falha ao cadastrar/)
+      expect(within(dialog).queryByRole('button', { name: 'Usar autor existente' })).not.toBeInTheDocument()
+    })
   })
 })
