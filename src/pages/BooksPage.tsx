@@ -11,7 +11,7 @@ import { CategoryPicker, type CategoryChoice } from '../components/CategoryPicke
 import { CopyStatusBadge } from '../components/copyStatus'
 import { Icon } from '../components/Icon'
 import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, ErrorSummary, FormCard, IconButton, PageHeader, Pagination, Pills, RequiredNote, SearchInput, Spinner, TextField } from '../components/ui'
-import { errorItems, errorTitle, fid } from '../lib/form'
+import { applyServerErrors, errorItems, errorTitle, fid, serverErrors } from '../lib/form'
 import { maskIsbn, maskYear } from '../lib/masks'
 import { suggestionToForm } from '../lib/lookup'
 import { bookSchema, bookSchemaFor, copySchema, isbnValid } from '../lib/schemas'
@@ -21,6 +21,9 @@ type LookupState = { kind: 'FOUND' | 'NOT_FOUND' | 'ALREADY_REGISTERED' | 'FAILE
 
 type Values = z.infer<typeof bookSchema>
 const empty: Values = { isbn: '', title: '', publisher: '', year: '', categoryId: '', authorIds: [] }
+/** Field paths of the API → form fields; a 422 about the ISBN has no field, so it is pinned by its message. */
+const serverFields = { isbn: 'isbn', title: 'title', publisher: 'publisher', publicationYear: 'year', categoryId: 'categoryId', authorIds: 'authorIds' }
+const serverRules: [RegExp, string][] = [[/isbn/i, 'isbn']]
 
 export function BooksPage() {
   const qc = useQueryClient()
@@ -50,7 +53,7 @@ export function BooksPage() {
   })
 
   const form = useForm<Values>({ resolver: zodResolver(editing ? bookSchemaFor({ publisher: !editing.publisher, year: !editing.publicationYear }) : bookSchema), defaultValues: empty })
-  const { register, handleSubmit, reset, setValue, formState: { errors, isSubmitted } } = form
+  const { register, handleSubmit, reset, setValue, setError, formState: { errors, isSubmitted } } = form
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['books'] })
   const save = useMutation({
@@ -67,6 +70,7 @@ export function BooksPage() {
         body: { isbn: v.isbn.replace(/[\s-]/g, ''), title: v.title, publisher: v.publisher, publicationYear: Number(v.year), categoryId: Number(v.categoryId), authorIds: v.authorIds },
       }))
     },
+    onError: (error) => applyServerErrors(serverErrors(error, serverFields, serverRules), setError),
     onSuccess: () => {
       setDone(true)
       setEditing(null)
@@ -183,6 +187,7 @@ export function BooksPage() {
     },
   })
 
+  const serverBanner = save.isError ? serverErrors(save.error, serverFields, serverRules).banner : undefined
   const items = errorItems(errors, { isbn: 'ISBN', title: 'Título', publisher: 'Editora', year: 'Ano', categoryId: 'Categoria', authorIds: 'Autores' })
   const isbnField = register('isbn', { onChange: (e) => setValue('isbn', maskIsbn(e.target.value)), onBlur: (e) => void lookupIsbn(e.target.value) })
   const yearField = register('year', { onChange: (e) => setValue('year', maskYear(e.target.value)) })
@@ -241,7 +246,7 @@ export function BooksPage() {
           <form noValidate onSubmit={handleSubmit((v) => save.mutate(v))} className="flex flex-col gap-4">
             <RequiredNote />
             {done && !save.isPending && <Banner kind="success">Livro salvo com sucesso.</Banner>}
-            {save.isError && <Banner kind="error">{errorMessage(save.error)}</Banner>}
+            {serverBanner && <Banner kind="error">{serverBanner}</Banner>}
             <ErrorSummary title={errorTitle(items.length, 'salvar o livro')} items={items} />
             <TextField id={fid('isbn')} label="ISBN" required mono readOnly={!!editing} autoComplete="off" placeholder="978-85-0000-000-0" hint={editing ? 'O ISBN não pode ser alterado.' : 'ISBN-10 ou ISBN-13. Não pode ser alterado depois do cadastro.'} error={errors.isbn?.message} {...isbnField} />
             {lookup && (

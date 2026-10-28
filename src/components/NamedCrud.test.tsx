@@ -82,3 +82,18 @@ describe('autores: reativação', () => {
     expect(screen.queryByRole('button', { name: /Reativar/ })).not.toBeInTheDocument()
   })
 })
+
+describe('autores: erro de campo do servidor', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('400 com errors marca o campo Nome, sem banner', async () => {
+    mockApi({ 'POST /api/v1/authors': () => ({ status: 400, json: { detail: 'Dados inválidos.', errors: [{ field: 'name', message: 'o nome tem caracteres inválidos' }] } }) })
+    renderAuthors()
+    await userEvent.type(await screen.findByLabelText(/Nome/), 'Ana')
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar autor' }))
+    expect(await screen.findByText('Corrija 1 campo para salvar o autor.')).toBeInTheDocument()
+    expect(screen.getByLabelText(/Nome/)).toHaveAccessibleDescription('O nome tem caracteres inválidos')
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+  })
+})
+

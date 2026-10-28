@@ -9,12 +9,14 @@ import type { Reader, ReaderSummary } from '../api/types'
 import { Icon } from '../components/Icon'
 import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, ErrorSummary, FormCard, IconButton, PageHeader, Pagination, Pills, RequiredNote, SearchInput, Spinner, TextField } from '../components/ui'
 import { isMinor } from '../lib/dates'
-import { errorItems, errorTitle, fid } from '../lib/form'
+import { applyServerErrors, errorItems, errorTitle, fid, serverErrors } from '../lib/form'
 import { maskDocument, maskPhone } from '../lib/masks'
 import { readerSchema } from '../lib/schemas'
 import { useDebounced } from '../lib/useDebounced'
 
 type Values = z.infer<typeof readerSchema>
+/** Field paths of the API → form fields. */
+const serverFields = { name: 'name', document: 'document', email: 'email', phone: 'phone', birthDate: 'birthDate', 'guardian.name': 'guardianName', 'guardian.email': 'guardianEmail', 'guardian.phone': 'guardianPhone' }
 const empty: Values = { name: '', document: '', email: '', phone: '', birthDate: '', guardianName: '', guardianEmail: '', guardianPhone: '' }
 type Filter = 'active' | 'inactive' | 'blocked'
 
@@ -37,7 +39,7 @@ export function ReadersPage() {
   })
 
   const form = useForm<Values>({ resolver: zodResolver(readerSchema), defaultValues: empty })
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = form
+  const { register, handleSubmit, reset, setValue, setError, watch, formState: { errors } } = form
   const [birthDate, gName, gEmail, gPhone] = watch(['birthDate', 'guardianName', 'guardianEmail', 'guardianPhone'])
   const minor = isMinor(birthDate)
   const guardianRequired = minor || Boolean(gName || gEmail || gPhone)
@@ -52,6 +54,7 @@ export function ReadersPage() {
         ? call(api.PATCH('/api/v1/readers/{id}', { params: { path: { id: editing.id } }, body }))
         : call(api.POST('/api/v1/readers', { body }))
     },
+    onError: (error) => applyServerErrors(serverErrors(error, serverFields), setError),
     onSuccess: () => { setDone(true); setEditing(null); reset(empty); void refresh() },
   })
   const inactivate = useMutation({
@@ -74,6 +77,7 @@ export function ReadersPage() {
     },
   })
 
+  const serverBanner = save.isError ? serverErrors(save.error, serverFields).banner : undefined
   const items = errorItems(errors, { name: 'Nome', document: 'Documento', email: 'E-mail', phone: 'Telefone', birthDate: 'Nascimento', guardianName: 'Nome do responsável', guardianEmail: 'E-mail do responsável', guardianPhone: 'Telefone do responsável' })
   const docField = register('document', { onChange: (e) => setValue('document', maskDocument(e.target.value)) })
   const phoneField = register('phone', { onChange: (e) => setValue('phone', maskPhone(e.target.value)) })
@@ -123,7 +127,7 @@ export function ReadersPage() {
           <form noValidate onSubmit={handleSubmit((v) => save.mutate(v))} className="flex flex-col gap-4">
             <RequiredNote />
             {done && !save.isPending && <Banner kind="success">Leitor salvo com sucesso.</Banner>}
-            {save.isError && <Banner kind="error">{errorMessage(save.error)}</Banner>}
+            {serverBanner && <Banner kind="error">{serverBanner}</Banner>}
             <ErrorSummary title={errorTitle(items.length, 'salvar o leitor')} items={items} />
             <TextField id={fid('name')} label="Nome" required maxLength={150} autoComplete="off" error={errors.name?.message} {...register('name')} />
             <TextField id={fid('document')} label="Documento" required mono maxLength={40} autoComplete="off" placeholder="CPF, RG ou outro documento" hint="Pontos e traços são ignorados. Deve ser único entre os leitores." error={errors.document?.message} {...docField} />

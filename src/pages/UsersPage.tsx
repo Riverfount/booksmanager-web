@@ -9,13 +9,15 @@ import { Icon } from '../components/Icon'
 import { PasswordRules } from '../components/PasswordRules'
 import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, ErrorSummary, FormCard, IconButton, PageHeader, Pagination, Pills, RequiredNote, SearchInput, Spinner, TextField } from '../components/ui'
 import { formatDateTime } from '../lib/dates'
-import { errorItems, errorTitle, fid } from '../lib/form'
+import { applyServerErrors, errorItems, errorTitle, fid, serverErrors } from '../lib/form'
 import { resetPasswordSchema, userEditSchema, userSchema } from '../lib/schemas'
 import { useDebounced } from '../lib/useDebounced'
 
 type Values = z.infer<typeof userSchema>
 const roleLabel = { ADMIN: 'administrador', OPERATOR: 'operador', READER: 'leitor' } as const
 const empty: Values = { login: '', displayName: '', role: 'OPERATOR', password: '' }
+/** Field paths of the API → form fields (the profile has no field of its own, so its errors stay in the banner). */
+const serverFields = { login: 'login', displayName: 'displayName', password: 'password' }
 
 export function UsersPage() {
   const qc = useQueryClient()
@@ -37,7 +39,7 @@ export function UsersPage() {
   editingRef.current = editing !== null
   const resolver: Resolver<Values> = (values, context, options) =>
     (editingRef.current ? zodResolver(userEditSchema) : zodResolver(userSchema))(values, context, options) as ReturnType<Resolver<Values>>
-  const { register, handleSubmit, reset, watch, formState: { errors, isSubmitted } } = useForm<Values>({ resolver, defaultValues: empty })
+  const { register, handleSubmit, reset, setError, watch, formState: { errors, isSubmitted } } = useForm<Values>({ resolver, defaultValues: empty })
   const password = watch('password')
 
   const refresh = () => qc.invalidateQueries({ queryKey: ['users'] })
@@ -46,6 +48,7 @@ export function UsersPage() {
       editing
         ? call(api.PATCH('/api/v1/users/{id}', { params: { path: { id: editing.id } }, body: { role: v.role, displayName: v.displayName || undefined } }))
         : call(api.POST('/api/v1/users', { body: { login: v.login, password: v.password, role: v.role, displayName: v.displayName || undefined } })),
+    onError: (error) => applyServerErrors(serverErrors(error, serverFields), setError),
     onSuccess: () => { setDone(true); setEditing(null); reset(empty); void refresh() },
   })
   const unblock = useMutation({
@@ -64,6 +67,7 @@ export function UsersPage() {
     setEditing(u)
     reset({ login: u.login, displayName: u.displayName ?? '', role: u.role, password: '' })
   }
+  const serverBanner = save.isError ? serverErrors(save.error, serverFields).banner : undefined
   const items = errorItems(errors, { login: 'Login', displayName: 'Nome de exibição', password: 'Senha' })
 
   return (
@@ -109,7 +113,7 @@ export function UsersPage() {
           <form noValidate onSubmit={handleSubmit((v) => save.mutate(v))} className="flex flex-col gap-4">
             <RequiredNote />
             {done && !save.isPending && <Banner kind="success">Usuário salvo com sucesso.</Banner>}
-            {save.isError && <Banner kind="error">{errorMessage(save.error)}</Banner>}
+            {serverBanner && <Banner kind="error">{serverBanner}</Banner>}
             <ErrorSummary title={errorTitle(items.length, editing ? 'salvar o usuário' : 'criar o usuário')} items={items} />
             <TextField id={fid('login')} label="Login" required mono readOnly={!!editing} maxLength={50} autoComplete="off" autoCapitalize="none" placeholder="Ex.: maria" hint="Único, guardado em minúsculas e não pode ser alterado depois." error={errors.login?.message} {...register('login')} />
             <TextField id={fid('displayName')} label="Nome de exibição" maxLength={100} autoComplete="off" placeholder="Ex.: Maria Souza" hint="É o que aparece na barra lateral. Sem ele, vale o login." error={errors.displayName?.message} {...register('displayName')} />
