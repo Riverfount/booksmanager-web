@@ -178,6 +178,8 @@ export function BooksPage() {
     },
   })
 
+  // The select lists only active categories: keep the book's own one visible when it was deactivated later.
+  const inactiveCategory = editing && categories.data && !categories.data.items.some((c) => c.id === editing.categoryId) ? editing.category : null
   const items = errorItems(errors, { isbn: 'ISBN', title: 'Título', publisher: 'Editora', year: 'Ano', categoryId: 'Categoria', authorIds: 'Autores' })
   const isbnField = register('isbn', { onChange: (e) => setValue('isbn', maskIsbn(e.target.value)), onBlur: (e) => void lookupIsbn(e.target.value) })
   const yearField = register('year', { onChange: (e) => setValue('year', maskYear(e.target.value)) })
@@ -273,6 +275,7 @@ export function BooksPage() {
             </div>
             <SelectField id={fid('categoryId')} label="Categoria" required error={errors.categoryId?.message} {...register('categoryId')}>
               <option value="">Selecione uma categoria</option>
+              {inactiveCategory && <option value={inactiveCategory.id}>{inactiveCategory.name} (inativa)</option>}
               {categories.data?.items.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </SelectField>
             <AuthorPicker id={fid('authorIds')} value={chosen} onChange={setAuthors} error={errors.authorIds?.message} />

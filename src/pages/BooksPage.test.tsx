@@ -210,3 +210,45 @@ describe('livros: filtros e reativação', () => {
     expect(screen.queryByRole('button', { name: /Reativar/ })).not.toBeInTheDocument()
   })
 })
+
+describe('livros: categoria na edição', () => {
+  const book = {
+    id: 4, isbn: ISBN, title: 'Dom Casmurro', publisher: 'Garnier', publicationYear: 1899, active: true, availableCopies: 1, totalCopies: 1, categoryId: 3,
+    category: { id: 3, name: 'Romance' }, authorIds: [7], authors: [{ id: 7, name: 'Machado de Assis' }],
+  }
+  const edit = async () => userEvent.click(await screen.findByRole('button', { name: 'Editar Dom Casmurro' }))
+
+  it('mostra a categoria inativa do livro, marcada, e a mantém selecionada', async () => {
+    const calls = mockApi({
+      'GET /api/v1/books': () => ({ json: pageOf([book]) }),
+      'GET /api/v1/categories': () => ({ json: pageOf([{ id: 5, name: 'Ficção', active: true }]) }),
+      'PATCH /api/v1/books/4': () => ({ json: book }),
+    })
+    renderBooks()
+    await edit()
+    const select = await screen.findByLabelText(/^Categoria/)
+    expect(await screen.findByRole('option', { name: 'Romance (inativa)' })).toBeInTheDocument()
+    expect(select).toHaveValue('3')
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar livro' }))
+    await waitFor(() => expect(calls.find((c) => c.key === 'PATCH /api/v1/books/4')?.body).toMatchObject({ categoryId: 3 }))
+  })
+
+  it('não marca como inativa a categoria que está na lista de ativas', async () => {
+    mockApi({
+      'GET /api/v1/books': () => ({ json: pageOf([book]) }),
+      'GET /api/v1/categories': () => ({ json: pageOf([{ id: 3, name: 'Romance', active: true }]) }),
+    })
+    renderBooks()
+    await edit()
+    const select = await screen.findByLabelText(/^Categoria/)
+    await waitFor(() => expect(select).toHaveValue('3'))
+    expect(screen.queryByRole('option', { name: /inativa/ })).not.toBeInTheDocument()
+  })
+
+  it('no cadastro de livro novo, não aparece opção de categoria inativa', async () => {
+    mockApi({ 'GET /api/v1/categories': () => ({ json: pageOf([{ id: 5, name: 'Ficção', active: true }]) }) })
+    renderBooks()
+    expect(await screen.findAllByRole('option', { name: 'Ficção' })).toHaveLength(2)
+    expect(screen.queryByRole('option', { name: /inativa/ })).not.toBeInTheDocument()
+  })
+})
