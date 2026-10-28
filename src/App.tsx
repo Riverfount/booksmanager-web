@@ -18,6 +18,7 @@ const ReservationsPage = lazy(() => import('./pages/ReservationsPage').then((m) 
 const ReportsPage = lazy(() => import('./pages/ReportsPage').then((m) => ({ default: m.ReportsPage })))
 const PenaltiesPage = lazy(() => import('./pages/PenaltiesPage').then((m) => ({ default: m.PenaltiesPage })))
 const UsersPage = lazy(() => import('./pages/UsersPage').then((m) => ({ default: m.UsersPage })))
+const AuditPage = lazy(() => import('./pages/AuditPage').then((m) => ({ default: m.AuditPage })))
 const ConfigurationPage = lazy(() => import('./pages/ConfigurationPage').then((m) => ({ default: m.ConfigurationPage })))
 
 export function App() {
@@ -42,6 +43,7 @@ export function App() {
           <Route path="multas" element={<PenaltiesPage />} />
           <Route element={<RequireAdmin />}>
             <Route path="usuarios" element={<UsersPage />} />
+            <Route path="auditoria" element={<AuditPage />} />
             <Route path="configuracao" element={<ConfigurationPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
