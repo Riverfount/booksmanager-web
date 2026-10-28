@@ -163,7 +163,7 @@ export function NamedCrud(p: Props) {
       {removing && (
         <Dialog title={`Inativar ${p.noun}`} onClose={() => setRemoving(null)}>
           <p className="m-0 text-sm text-fg2">
-            {removing.name} deixa de aparecer nas listas, mas o histórico é mantido. Não é possível inativar {p.article} {p.noun} em uso por livros ativos.
+            {removing.name} deixa de aparecer nas listas e não pode ser us{p.article === 'o' ? 'ado' : 'ada'} em livros novos; os livros que já {p.article} têm continuam com {p.article === 'o' ? 'ele' : 'ela'}. Só um administrador pode reativar {p.article} {p.noun}.
           </p>
           {inactivate.isError && <Banner kind="error">{errorMessage(inactivate.error)}</Banner>}
           <div className="flex justify-end gap-3">

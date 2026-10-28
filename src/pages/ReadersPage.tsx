@@ -149,7 +149,7 @@ export function ReadersPage() {
 
       {removing && (
         <Dialog title="Inativar leitor" onClose={() => setRemoving(null)}>
-          <p className="m-0 text-sm text-fg2">{removing.name} deixa de poder pegar livros; o histórico é mantido. Leitores com empréstimo em aberto não podem ser inativados.</p>
+          <p className="m-0 text-sm text-fg2">{removing.name} deixa de poder pegar livros e perde o acesso ao sistema; o histórico é mantido. Não é possível reativar um leitor.</p>
           {inactivate.isError && <Banner kind="error">{errorMessage(inactivate.error)}</Banner>}
           <div className="flex justify-end gap-3">
             <Button onClick={() => setRemoving(null)}>Cancelar</Button>
