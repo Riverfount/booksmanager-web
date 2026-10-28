@@ -286,7 +286,7 @@ export function BooksPage() {
 
       {removing && (
         <Dialog title="Inativar livro" onClose={() => setRemoving(null)}>
-          <p className="m-0 text-sm text-fg2">“{removing.title}” sai da lista de ativos; o histórico de empréstimos é mantido. Livros com exemplares emprestados não podem ser inativados.</p>
+          <p className="m-0 text-sm text-fg2">“{removing.title}” sai da lista de ativos; o histórico de empréstimos é mantido. Só um administrador pode reativar o livro.</p>
           {inactivate.isError && <Banner kind="error">{errorMessage(inactivate.error)}</Banner>}
           <div className="flex justify-end gap-3">
             <Button onClick={() => setRemoving(null)}>Cancelar</Button>
