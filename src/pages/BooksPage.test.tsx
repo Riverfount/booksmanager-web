@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
@@ -177,12 +177,16 @@ describe('livros: filtros e reativação', () => {
     const calls = mockApi({ 'GET /api/v1/categories': () => ({ json: pageOf([{ id: 3, name: 'Romance', active: true }]) }) })
     renderBooks()
     await userEvent.type(await screen.findByLabelText('Filtrar por autor'), 'machado')
-    await userEvent.selectOptions(await screen.findByLabelText('Filtrar por categoria'), 'Romance')
+    const filter = within(screen.getByLabelText('Filtrar por categoria').closest('fieldset')!)
+    await userEvent.type(await screen.findByLabelText('Filtrar por categoria'), 'rom')
+    await userEvent.click(await filter.findByRole('button', { name: 'Romance' }))
     await waitFor(() => {
       const q = calls.filter((c) => c.key === 'GET /api/v1/books').at(-1)!.url.searchParams
       expect(q.get('author')).toBe('machado')
       expect(q.get('categoryId')).toBe('3')
     })
+    await userEvent.click(screen.getByRole('button', { name: 'Remover Romance' }))
+    await waitFor(() => expect(calls.filter((c) => c.key === 'GET /api/v1/books').at(-1)!.url.searchParams.has('categoryId')).toBe(false))
   })
 
   const inactiveBook = {
@@ -211,44 +215,58 @@ describe('livros: filtros e reativação', () => {
   })
 })
 
-describe('livros: categoria na edição', () => {
+describe('livros: categoria por busca', () => {
   const book = {
     id: 4, isbn: ISBN, title: 'Dom Casmurro', publisher: 'Garnier', publicationYear: 1899, active: true, availableCopies: 1, totalCopies: 1, categoryId: 3,
     category: { id: 3, name: 'Romance' }, authorIds: [7], authors: [{ id: 7, name: 'Machado de Assis' }],
   }
   const edit = async () => userEvent.click(await screen.findByRole('button', { name: 'Editar Dom Casmurro' }))
+  const routes = (romanceActive: boolean) => ({
+    'GET /api/v1/books': () => ({ json: pageOf([book]) }),
+    'GET /api/v1/categories/3': () => ({ json: { id: 3, name: 'Romance', active: romanceActive } }),
+    'GET /api/v1/categories': () => ({ json: pageOf([{ id: 5, name: 'Ficção', active: true }]) }),
+    'PATCH /api/v1/books/4': () => ({ json: book }),
+  })
 
-  it('mostra a categoria inativa do livro, marcada, e a mantém selecionada', async () => {
-    const calls = mockApi({
-      'GET /api/v1/books': () => ({ json: pageOf([book]) }),
-      'GET /api/v1/categories': () => ({ json: pageOf([{ id: 5, name: 'Ficção', active: true }]) }),
-      'PATCH /api/v1/books/4': () => ({ json: book }),
-    })
+  it('marca a categoria inativa do livro e a mantém ao salvar', async () => {
+    const calls = mockApi(routes(false))
     renderBooks()
     await edit()
-    const select = await screen.findByLabelText(/^Categoria/)
-    expect(await screen.findByRole('option', { name: 'Romance (inativa)' })).toBeInTheDocument()
-    expect(select).toHaveValue('3')
+    expect(await screen.findByText('Romance (inativa)')).toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: 'Salvar livro' }))
     await waitFor(() => expect(calls.find((c) => c.key === 'PATCH /api/v1/books/4')?.body).toMatchObject({ categoryId: 3 }))
   })
 
-  it('não marca como inativa a categoria que está na lista de ativas', async () => {
-    mockApi({
-      'GET /api/v1/books': () => ({ json: pageOf([book]) }),
-      'GET /api/v1/categories': () => ({ json: pageOf([{ id: 3, name: 'Romance', active: true }]) }),
-    })
+  it('não marca como inativa a categoria ativa', async () => {
+    const calls = mockApi(routes(true))
     renderBooks()
     await edit()
-    const select = await screen.findByLabelText(/^Categoria/)
-    await waitFor(() => expect(select).toHaveValue('3'))
-    expect(screen.queryByRole('option', { name: /inativa/ })).not.toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Remover Romance' })).toBeInTheDocument()
+    await waitFor(() => expect(calls.some((c) => c.key === 'GET /api/v1/categories/3')).toBe(true))
+    expect(screen.queryByText(/inativa/)).not.toBeInTheDocument()
   })
 
-  it('no cadastro de livro novo, não aparece opção de categoria inativa', async () => {
+  it('busca pelo nome e troca a categoria do livro', async () => {
+    const calls = mockApi(routes(true))
+    renderBooks()
+    await edit()
+    await userEvent.type(await screen.findByLabelText('Buscar categoria pelo nome'), 'fic')
+    await userEvent.click(await screen.findByRole('button', { name: 'Ficção' }))
+    expect(await screen.findByRole('button', { name: 'Remover Ficção' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar livro' }))
+    await waitFor(() => expect(calls.find((c) => c.key === 'PATCH /api/v1/books/4')?.body).toMatchObject({ categoryId: 5 }))
+    await waitFor(() => {
+      const search = calls.filter((c) => c.key === 'GET /api/v1/categories').map((c) => c.url.searchParams).find((q) => q.get('name') === 'fic')
+      expect(search?.get('active')).toBe('true')
+      expect(search?.get('size')).toBe('5')
+    })
+  })
+
+  it('exige a categoria no livro novo e não mostra seleção antes de escolher', async () => {
     mockApi({ 'GET /api/v1/categories': () => ({ json: pageOf([{ id: 5, name: 'Ficção', active: true }]) }) })
     renderBooks()
-    expect(await screen.findAllByRole('option', { name: 'Ficção' })).toHaveLength(2)
-    expect(screen.queryByRole('option', { name: /inativa/ })).not.toBeInTheDocument()
+    expect(await screen.findByText('Nenhuma categoria selecionada.')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar livro' }))
+    expect((await screen.findAllByText('Selecione a categoria do livro.')).length).toBeGreaterThan(0)
   })
 })

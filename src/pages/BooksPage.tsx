@@ -7,9 +7,10 @@ import { api, call, errorMessage, existingAuthorId } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type { Book } from '../api/types'
 import { AuthorPicker, type AuthorChip } from '../components/AuthorPicker'
+import { CategoryPicker, type CategoryChoice } from '../components/CategoryPicker'
 import { CopyStatusBadge } from '../components/copyStatus'
 import { Icon } from '../components/Icon'
-import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, ErrorSummary, FormCard, IconButton, PageHeader, Pagination, Pills, RequiredNote, SearchInput, SelectField, Spinner, TextField } from '../components/ui'
+import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, ErrorSummary, FormCard, IconButton, PageHeader, Pagination, Pills, RequiredNote, SearchInput, Spinner, TextField } from '../components/ui'
 import { errorItems, errorTitle, fid } from '../lib/form'
 import { maskIsbn, maskYear } from '../lib/masks'
 import { suggestionToForm } from '../lib/lookup'
@@ -33,7 +34,8 @@ export function BooksPage() {
   const [done, setDone] = useState(false)
   const [authorFilter, setAuthorFilter] = useState('')
   const [isbnFilter, setIsbnFilter] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<CategoryChoice | null>(null)
+  const [category, setCategory] = useState<CategoryChoice | null>(null)
   const [lookup, setLookup] = useState<LookupState | null>(null)
   const { isAdmin } = useAuth()
   const title = useDebounced(search.trim())
@@ -41,14 +43,10 @@ export function BooksPage() {
   const isbn = useDebounced(isbnFilter.trim())
 
   const books = useQuery({
-    queryKey: ['books', title, author, isbn, categoryFilter, active, page],
+    queryKey: ['books', title, author, isbn, categoryFilter?.id, active, page],
     queryFn: () => call(api.GET('/api/v1/books', {
-      params: { query: { title: title || undefined, author: author || undefined, isbn: isbn || undefined, categoryId: categoryFilter ? Number(categoryFilter) : undefined, active: active === 'true', page } },
+      params: { query: { title: title || undefined, author: author || undefined, isbn: isbn || undefined, categoryId: categoryFilter?.id, active: active === 'true', page } },
     })),
-  })
-  const categories = useQuery({
-    queryKey: ['categories', 'all'],
-    queryFn: () => call(api.GET('/api/v1/categories', { params: { query: { size: 100, active: true } } })),
   })
 
   const form = useForm<Values>({ resolver: zodResolver(editing ? bookSchemaFor({ publisher: !editing.publisher, year: !editing.publicationYear }) : bookSchema), defaultValues: empty })
@@ -73,6 +71,7 @@ export function BooksPage() {
       setDone(true)
       setEditing(null)
       setChosen([])
+      setCategory(null)
       setLookup(null)
       reset(empty)
       void refresh()
@@ -96,14 +95,20 @@ export function BooksPage() {
     setEditing(b)
     setLookup(null)
     setChosen(b.authors)
+    setCategory(b.category)
     reset({ isbn: b.isbn, title: b.title, publisher: b.publisher ?? '', year: b.publicationYear ? String(b.publicationYear) : '', categoryId: String(b.categoryId), authorIds: b.authors.map((a) => a.id) })
   }
   const cancel = () => {
     setEditing(null)
     setChosen([])
+    setCategory(null)
     setLookup(null)
     setDone(false)
     reset(empty)
+  }
+  const setCategoryChoice = (c: CategoryChoice | null) => {
+    setCategory(c)
+    setValue('categoryId', c ? String(c.id) : '', { shouldValidate: isSubmitted })
   }
   const setAuthors = (list: AuthorChip[]) => {
     setChosen(list)
@@ -171,15 +176,13 @@ export function BooksPage() {
     onSuccess: (b) => {
       setSearch('')
       setAuthorFilter('')
-      setCategoryFilter('')
+      setCategoryFilter(null)
       setIsbnFilter(b.isbn)
       setActive(b.active ? 'true' : 'false')
       setPage(0)
     },
   })
 
-  // The select lists only active categories: keep the book's own one visible when it was deactivated later.
-  const inactiveCategory = editing && categories.data && !categories.data.items.some((c) => c.id === editing.categoryId) ? editing.category : null
   const items = errorItems(errors, { isbn: 'ISBN', title: 'Título', publisher: 'Editora', year: 'Ano', categoryId: 'Categoria', authorIds: 'Autores' })
   const isbnField = register('isbn', { onChange: (e) => setValue('isbn', maskIsbn(e.target.value)), onBlur: (e) => void lookupIsbn(e.target.value) })
   const yearField = register('year', { onChange: (e) => setValue('year', maskYear(e.target.value)) })
@@ -191,14 +194,11 @@ export function BooksPage() {
         <div className="flex min-w-0 flex-[2_1_560px] flex-col gap-6">
           <Card>
             <Pills value={active} onChange={(v) => { setActive(v); setPage(0) }} options={[{ value: 'true', label: 'Ativos' }, { value: 'false', label: 'Inativos' }]} />
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <SearchInput label="Filtrar por autor" placeholder="Autor" value={authorFilter} onChange={(e) => { setAuthorFilter(e.target.value); setPage(0) }} />
               <SearchInput label="Filtrar por ISBN" placeholder="ISBN" value={isbnFilter} onChange={(e) => { setIsbnFilter(e.target.value); setPage(0) }} />
-              <select aria-label="Filtrar por categoria" value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setPage(0) }} className="box-border h-11 w-full rounded-md border border-line bg-bg0-h px-3 text-[15px] text-fg">
-                <option value="">Todas as categorias</option>
-                {categories.data?.items.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
             </div>
+            <CategoryPicker id="category-filter" value={categoryFilter} onChange={(c) => { setCategoryFilter(c); setPage(0) }} searchLabel="Filtrar por categoria" compact />
             {reactivate.isError && <Banner kind="error">{errorMessage(reactivate.error)}</Banner>}
             {showRegistered.isError && <Banner kind="error">{errorMessage(showRegistered.error)}</Banner>}
             {books.isPending && <Spinner />}
@@ -273,11 +273,7 @@ export function BooksPage() {
               <TextField id={fid('publisher')} label="Editora" required maxLength={255} autoComplete="off" error={errors.publisher?.message} {...register('publisher')} />
               <TextField id={fid('year')} label="Ano" required inputMode="numeric" placeholder="1899" error={errors.year?.message} {...yearField} />
             </div>
-            <SelectField id={fid('categoryId')} label="Categoria" required error={errors.categoryId?.message} {...register('categoryId')}>
-              <option value="">Selecione uma categoria</option>
-              {inactiveCategory && <option value={inactiveCategory.id}>{inactiveCategory.name} (inativa)</option>}
-              {categories.data?.items.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </SelectField>
+            <CategoryPicker id={fid('categoryId')} legend="Categoria" required value={category} onChange={setCategoryChoice} error={errors.categoryId?.message} />
             <AuthorPicker id={fid('authorIds')} value={chosen} onChange={setAuthors} error={errors.authorIds?.message} />
             <div className="flex justify-end gap-3 pt-1">
               <Button onClick={cancel}>Cancelar</Button>
