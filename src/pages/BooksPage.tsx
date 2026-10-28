@@ -3,7 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { z } from 'zod'
-import { api, call, errorMessage } from '../api/client'
+import { api, call, errorMessage, existingAuthorId } from '../api/client'
 import { useAuth } from '../auth/AuthContext'
 import type { Book } from '../api/types'
 import { AuthorPicker, type AuthorChip } from '../components/AuthorPicker'
@@ -142,6 +142,30 @@ export function BooksPage() {
       void qc.invalidateQueries({ queryKey: ['authors'] })
     },
   })
+  // Registers the suggested authors one by one; a homonym (422) reuses the author who already has the name.
+  // Stops at the first other failure, keeping the ones already registered.
+  const registerAll = useMutation({
+    mutationFn: async (names: string[]) => {
+      const added: AuthorChip[] = []
+      for (const name of names) {
+        try {
+          const a = await call(api.POST('/api/v1/authors', { body: { name } }))
+          added.push({ id: a.id, name: a.name })
+        } catch (error) {
+          const existing = existingAuthorId(error)
+          if (existing === undefined) return { added, failure: error }
+          added.push({ id: existing, name })
+        }
+      }
+      return { added, failure: undefined }
+    },
+    onSuccess: ({ added }) => {
+      setAuthors([...chosen, ...added.filter((a) => !chosen.some((c) => c.id === a.id))])
+      const done = new Set(added.map((a) => a.name))
+      setLookup((l) => (l ? { ...l, unknownAuthors: l.unknownAuthors.filter((n) => !done.has(n)) } : l))
+      void qc.invalidateQueries({ queryKey: ['authors'] })
+    },
+  })
   const showRegistered = useMutation({
     mutationFn: (id: number) => call(api.GET('/api/v1/books/{id}', { params: { path: { id } } })),
     onSuccess: (b) => {
@@ -228,6 +252,10 @@ export function BooksPage() {
                   <div className="flex flex-col gap-1.5 text-sm text-fg2">
                     <span>Autores sugeridos que ainda não estão no acervo:</span>
                     {registerAuthor.isError && <Banner kind="error">{errorMessage(registerAuthor.error)}</Banner>}
+                    {registerAll.data?.failure !== undefined && <Banner kind="error">{errorMessage(registerAll.data.failure)}</Banner>}
+                    {lookup.unknownAuthors.length > 1 && (
+                      <div><Button small disabled={registerAll.isPending} onClick={() => registerAll.mutate(lookup.unknownAuthors)}>Cadastrar todos e selecionar</Button></div>
+                    )}
                     {lookup.unknownAuthors.map((n) => (
                       <div key={n} className="flex flex-wrap items-center justify-between gap-2">
                         <span>{n}</span>

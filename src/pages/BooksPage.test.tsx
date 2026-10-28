@@ -67,6 +67,70 @@ describe('livros: lookup de ISBN', () => {
     expect(calls.find((c) => c.key === 'POST /api/v1/authors')?.body).toEqual({ name: 'Fulano' })
   })
 
+  describe('vários autores sugeridos que ainda não existem', () => {
+    const many = {
+      ...found,
+      suggestion: { ...found.suggestion, authors: [{ name: 'Machado de Assis', existingAuthorId: 7 }, { name: 'Fulano' }, { name: 'Beltrano' }] },
+    }
+
+    it('cadastra e seleciona todos de uma vez', async () => {
+      let next = 30
+      const calls = mockApi({
+        'GET /api/v1/books/lookup': () => ({ json: many }),
+        'POST /api/v1/authors': ({ body }) => ({ status: 201, json: { id: ++next, name: (body as { name: string }).name, active: true } }),
+      })
+      renderBooks()
+      await typeIsbn()
+      await userEvent.click(await screen.findByRole('button', { name: 'Cadastrar todos e selecionar' }))
+      expect(await screen.findByRole('button', { name: 'Remover Fulano' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Remover Beltrano' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Remover Machado de Assis' })).toBeInTheDocument()
+      expect(calls.filter((c) => c.key === 'POST /api/v1/authors').map((c) => c.body)).toEqual([{ name: 'Fulano' }, { name: 'Beltrano' }])
+      expect(screen.queryByText(/ainda não estão no acervo/)).not.toBeInTheDocument()
+    })
+
+    it('usa o autor que já existe quando o nome é homônimo (422), sem forçar duplicidade', async () => {
+      const calls = mockApi({
+        'GET /api/v1/books/lookup': () => ({ json: many }),
+        'POST /api/v1/authors': ({ body }) =>
+          (body as { name: string }).name === 'Fulano'
+            ? { status: 422, json: { detail: 'Já existe um autor com este nome.', existingAuthorId: 12 } }
+            : { status: 201, json: { id: 31, name: 'Beltrano', active: true } },
+      })
+      renderBooks()
+      await typeIsbn()
+      await userEvent.click(await screen.findByRole('button', { name: 'Cadastrar todos e selecionar' }))
+      expect(await screen.findByRole('button', { name: 'Remover Fulano' })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Remover Beltrano' })).toBeInTheDocument()
+      expect(calls.some((c) => (c.body as { allowDuplicate?: boolean } | undefined)?.allowDuplicate)).toBe(false)
+    })
+
+    it('mantém os que deram certo e mostra o erro do que falhou', async () => {
+      mockApi({
+        'GET /api/v1/books/lookup': () => ({ json: many }),
+        'POST /api/v1/authors': ({ body }) =>
+          (body as { name: string }).name === 'Fulano'
+            ? { status: 201, json: { id: 30, name: 'Fulano', active: true } }
+            : { status: 500, json: { detail: 'Falha ao cadastrar.' } },
+      })
+      renderBooks()
+      await typeIsbn()
+      await userEvent.click(await screen.findByRole('button', { name: 'Cadastrar todos e selecionar' }))
+      expect(await screen.findByRole('button', { name: 'Remover Fulano' })).toBeInTheDocument()
+      expect(await screen.findByText(/Falha ao cadastrar/)).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /Cadastrar e selecionar.*Beltrano/ })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Remover Beltrano' })).not.toBeInTheDocument()
+    })
+
+    it('não oferece o botão em lote quando falta só um autor', async () => {
+      mockApi({ 'GET /api/v1/books/lookup': () => ({ json: found }) })
+      renderBooks()
+      await typeIsbn()
+      await screen.findByRole('button', { name: /Cadastrar e selecionar/ })
+      expect(screen.queryByRole('button', { name: 'Cadastrar todos e selecionar' })).not.toBeInTheDocument()
+    })
+  })
+
   it('avisa do ISBN já cadastrado e filtra a lista pelo livro', async () => {
     const calls = mockApi({
       'GET /api/v1/books/lookup': () => ({ json: { isbn: ISBN, outcome: 'ALREADY_REGISTERED', message: 'Este ISBN já está cadastrado.', registeredBookId: 4 } }),
