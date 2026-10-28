@@ -1,7 +1,8 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router'
 import { Layout } from './components/Layout'
-import { RequireAdmin, RequireAuth } from './components/Guards'
+import { RequireAdmin, RequireAuth, RequireReader, RequireStaff } from './components/Guards'
+import { ReaderLayout } from './components/ReaderLayout'
 import { LoginPage } from './pages/LoginPage'
 import { AcceptInvitationPage } from './pages/AcceptInvitationPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
@@ -19,6 +20,10 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage').then((m) => ({ defa
 const PenaltiesPage = lazy(() => import('./pages/PenaltiesPage').then((m) => ({ default: m.PenaltiesPage })))
 const UsersPage = lazy(() => import('./pages/UsersPage').then((m) => ({ default: m.UsersPage })))
 const AuditPage = lazy(() => import('./pages/AuditPage').then((m) => ({ default: m.AuditPage })))
+const MyStandingPage = lazy(() => import('./pages/reader/MyStandingPage').then((m) => ({ default: m.MyStandingPage })))
+const CatalogPage = lazy(() => import('./pages/reader/CatalogPage').then((m) => ({ default: m.CatalogPage })))
+const MyLoansPage = lazy(() => import('./pages/reader/MyLoansPage').then((m) => ({ default: m.MyLoansPage })))
+const MyReservationsPage = lazy(() => import('./pages/reader/MyReservationsPage').then((m) => ({ default: m.MyReservationsPage })))
 const ConfigurationPage = lazy(() => import('./pages/ConfigurationPage').then((m) => ({ default: m.ConfigurationPage })))
 
 export function App() {
@@ -30,23 +35,34 @@ export function App() {
       <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
       <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
       <Route element={<RequireAuth />}>
-        <Route element={<Layout />}>
-          <Route index element={<DashboardPage />} />
-          <Route path="livros" element={<BooksPage />} />
-          <Route path="autores" element={<AuthorsPage />} />
-          <Route path="categorias" element={<CategoriesPage />} />
-          <Route path="leitores" element={<ReadersPage />} />
-          <Route path="leitores/:id" element={<ReaderDetailPage />} />
-          <Route path="emprestimos" element={<LoansPage />} />
-          <Route path="reservas" element={<ReservationsPage />} />
-          <Route path="relatorios" element={<ReportsPage />} />
-          <Route path="multas" element={<PenaltiesPage />} />
-          <Route element={<RequireAdmin />}>
-            <Route path="usuarios" element={<UsersPage />} />
-            <Route path="auditoria" element={<AuditPage />} />
-            <Route path="configuracao" element={<ConfigurationPage />} />
+        <Route element={<RequireStaff />}>
+          <Route element={<Layout />}>
+            <Route index element={<DashboardPage />} />
+            <Route path="livros" element={<BooksPage />} />
+            <Route path="autores" element={<AuthorsPage />} />
+            <Route path="categorias" element={<CategoriesPage />} />
+            <Route path="leitores" element={<ReadersPage />} />
+            <Route path="leitores/:id" element={<ReaderDetailPage />} />
+            <Route path="emprestimos" element={<LoansPage />} />
+            <Route path="reservas" element={<ReservationsPage />} />
+            <Route path="relatorios" element={<ReportsPage />} />
+            <Route path="multas" element={<PenaltiesPage />} />
+            <Route element={<RequireAdmin />}>
+              <Route path="usuarios" element={<UsersPage />} />
+              <Route path="auditoria" element={<AuditPage />} />
+              <Route path="configuracao" element={<ConfigurationPage />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+        <Route element={<RequireReader />}>
+          <Route path="meu" element={<ReaderLayout />}>
+            <Route index element={<MyStandingPage />} />
+            <Route path="catalogo" element={<CatalogPage />} />
+            <Route path="emprestimos" element={<MyLoansPage />} />
+            <Route path="reservas" element={<MyReservationsPage />} />
+            <Route path="*" element={<Navigate to="/meu" replace />} />
+          </Route>
         </Route>
       </Route>
     </Routes>

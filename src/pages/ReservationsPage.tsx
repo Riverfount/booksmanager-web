@@ -8,7 +8,7 @@ import { ReaderPicker, type ReaderChoice } from '../components/ReaderPicker'
 import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, ErrorSummary, FormCard, PageHeader, Pagination, Pills, RequiredNote, Spinner } from '../components/ui'
 import { formatDate } from '../lib/dates'
 import { fid } from '../lib/form'
-import { reservationState } from '../lib/reservations'
+import { reservationState, reservedMessage } from '../lib/reservations'
 
 type Tab = ReservationStatus | 'ALL'
 const tabs: { value: Tab; label: string }[] = [
@@ -127,7 +127,7 @@ function NewReservation({ onDone }: { onDone: () => void }) {
   const reserve = useMutation({
     mutationFn: () => call(api.POST('/api/v1/reservations', { body: { bookId: book!.id, readerId: reader!.id } })),
     onSuccess: (r) => {
-      setDone(r.queuePosition !== undefined ? `Reserva registrada: lugar ${r.queuePosition} na fila.` : 'Reserva registrada.')
+      setDone(reservedMessage(r.queuePosition))
       setSubmitted(false)
       setReader(null)
       setBook(null)
