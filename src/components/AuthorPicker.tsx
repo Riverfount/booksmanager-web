@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router'
 import { api, call } from '../api/client'
 import { useDebounced } from '../lib/useDebounced'
-import { FieldError } from './ui'
+import { NewAuthorDialog } from './NewAuthorDialog'
+import { Button, FieldError } from './ui'
 
 export type AuthorChip = { id: number; name: string }
 
 /** Autores por busca (não por lista suspensa): digita, vê até 5 resultados e marca; escolhidos viram chips. */
 export function AuthorPicker({ value, onChange, error, id }: { value: AuthorChip[]; onChange: (v: AuthorChip[]) => void; error?: string; id: string }) {
   const [query, setQuery] = useState('')
+  const [creating, setCreating] = useState(false)
   const q = useDebounced(query.trim())
   const results = useQuery({
     queryKey: ['authors', 'picker', q],
@@ -62,10 +63,20 @@ export function AuthorPicker({ value, onChange, error, id }: { value: AuthorChip
               ? `Mostrando ${items.length} de ${results.data.totalItems}. Continue digitando para filtrar.`
               : `${results.data?.totalItems ?? 0} ${(results.data?.totalItems ?? 0) === 1 ? 'autor encontrado' : 'autores encontrados'}`}
           </span>
-          <Link to="/autores" className="text-[13px] font-medium">Cadastrar novo autor</Link>
+          <Button small variant="ghost" onClick={() => setCreating(true)}>Cadastrar novo autor</Button>
         </div>
       </div>
       <FieldError id={`${id}-err`} message={error} />
+      {creating && (
+        <NewAuthorDialog
+          initialName={query.trim()}
+          onClose={() => setCreating(false)}
+          onCreated={(a) => {
+            if (!selected.has(a.id)) onChange([...value, a])
+            setCreating(false)
+          }}
+        />
+      )}
     </fieldset>
   )
 }
