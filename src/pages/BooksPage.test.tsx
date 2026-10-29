@@ -323,3 +323,130 @@ describe('livros: erros do servidor nos campos', () => {
     expect(screen.queryByText(/Corrija/)).not.toBeInTheDocument()
   })
 })
+
+describe('livros: painel de exemplares', () => {
+  const book = {
+    id: 4, isbn: ISBN, title: 'Dom Casmurro', publisher: 'Garnier', publicationYear: 1899, active: true, availableCopies: 2, totalCopies: 2, categoryId: 3,
+    category: { id: 3, name: 'Romance' }, authorIds: [7], authors: [{ id: 7, name: 'Machado de Assis' }],
+  }
+  const copy = (id: number, assetCode: string, status = 'AVAILABLE') => ({ id, bookId: 4, assetCode, status, active: true })
+  const copiesPage = (items: unknown[], page = 0, totalPages = 1) => ({ items, page, size: 20, totalItems: items.length, totalPages })
+  const openPanel = async () => userEvent.click(await screen.findByRole('button', { name: 'Ver exemplares de Dom Casmurro' }))
+
+  describe('confirmação de danificado e perdido', () => {
+    const routes = () => ({
+      'GET /api/v1/books': () => ({ json: pageOf([book]) }),
+      'GET /api/v1/copies': () => ({ json: copiesPage([copy(11, 'PAT-0001')]) }),
+      'PATCH /api/v1/copies/11': () => ({ json: copy(11, 'PAT-0001', 'DAMAGED') }),
+    })
+
+    it.each([
+      ['Danificado', 'DAMAGED', /PAT-0001 fica indisponível para empréstimo/],
+      ['Perdido', 'LOST', /PAT-0001 deixa de poder ser emprestado e passa a constar como perdido/],
+    ])('%s pede confirmação antes de mudar o status', async (label, status, text) => {
+      const calls = mockApi(routes())
+      renderBooks()
+      await openPanel()
+      await userEvent.click(await screen.findByRole('button', { name: label }))
+      const dialog = await screen.findByRole('dialog')
+      expect(dialog).toHaveTextContent(text)
+      expect(calls.some((c) => c.key === 'PATCH /api/v1/copies/11')).toBe(false)
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Confirmar' }))
+      await waitFor(() => expect(calls.find((c) => c.key === 'PATCH /api/v1/copies/11')?.body).toEqual({ status }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    })
+
+    it('cancelar não muda o status', async () => {
+      const calls = mockApi(routes())
+      renderBooks()
+      await openPanel()
+      await userEvent.click(await screen.findByRole('button', { name: 'Perdido' }))
+      await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Cancelar' }))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(calls.some((c) => c.key === 'PATCH /api/v1/copies/11')).toBe(false)
+    })
+
+    it('"Voltou a disponível" continua direto, sem confirmação', async () => {
+      const calls = mockApi({ ...routes(), 'GET /api/v1/copies': () => ({ json: copiesPage([copy(11, 'PAT-0001', 'DAMAGED')]) }), 'PATCH /api/v1/copies/11': () => ({ json: copy(11, 'PAT-0001') }) })
+      renderBooks()
+      await openPanel()
+      await userEvent.click(await screen.findByRole('button', { name: 'Voltou a disponível' }))
+      await waitFor(() => expect(calls.find((c) => c.key === 'PATCH /api/v1/copies/11')?.body).toEqual({ status: 'AVAILABLE' }))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('paginação', () => {
+    it('pagina a lista em vez de pedir 100 de uma vez', async () => {
+      const calls = mockApi({
+        'GET /api/v1/books': () => ({ json: pageOf([book]) }),
+        'GET /api/v1/copies': ({ url }) =>
+          url.searchParams.get('page') === '1'
+            ? { json: copiesPage([copy(21, 'PAT-0021')], 1, 2) }
+            : { json: copiesPage([copy(11, 'PAT-0011')], 0, 2) },
+      })
+      renderBooks()
+      await openPanel()
+      expect(await screen.findByText('PAT-0011')).toBeInTheDocument()
+      expect(screen.getByText(/Página 1 de 2/)).toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: 'Próxima' }))
+      expect(await screen.findByText('PAT-0021')).toBeInTheDocument()
+      expect(screen.getByText(/Página 2 de 2/)).toBeInTheDocument()
+      const asked = calls.filter((c) => c.key === 'GET /api/v1/copies').map((c) => c.url.searchParams)
+      expect(asked.every((q) => q.get('size') !== '100')).toBe(true)
+      expect(asked.at(-1)!.get('page')).toBe('1')
+    })
+
+    it('volta à página anterior quando a página atual fica vazia', async () => {
+      mockApi({
+        'GET /api/v1/books': () => ({ json: pageOf([book]) }),
+        'GET /api/v1/copies': ({ url }) =>
+          url.searchParams.get('page') === '1' ? { json: copiesPage([], 1, 1) } : { json: copiesPage([copy(11, 'PAT-0011')], 0, 2) },
+      })
+      renderBooks()
+      await openPanel()
+      await userEvent.click(await screen.findByRole('button', { name: 'Próxima' }))
+      expect(await screen.findByText('PAT-0011')).toBeInTheDocument()
+      expect(await screen.findByText(/Página 1 de 2/)).toBeInTheDocument()
+    })
+
+    it('volta à primeira página ao trocar entre ativos e inativos', async () => {
+      const calls = mockApi({
+        'GET /api/v1/books': () => ({ json: pageOf([book]) }),
+        'GET /api/v1/copies': ({ url }) => ({ json: copiesPage([copy(11, 'PAT-0011')], Number(url.searchParams.get('page') ?? 0), 2) }),
+      })
+      renderBooks()
+      await openPanel()
+      await userEvent.click(await screen.findByRole('button', { name: 'Próxima' }))
+      await waitFor(() => expect(screen.getByText(/Página 2 de 2/)).toBeInTheDocument())
+      const panel = within(screen.getByText(/Exemplares de/).closest('div')!.parentElement!)
+      await userEvent.click(panel.getByRole('button', { name: 'Inativos' }))
+      await waitFor(() => {
+        const last = calls.filter((c) => c.key === 'GET /api/v1/copies').at(-1)!.url.searchParams
+        expect(last.get('active')).toBe('false')
+        expect(last.get('page') ?? '0').toBe('0')
+      })
+    })
+  })
+
+  it('o título do painel acompanha a edição do livro', async () => {
+    let title = 'Dom Casmurro'
+    mockApi({
+      'GET /api/v1/books': () => ({ json: pageOf([{ ...book, title }]) }),
+      'GET /api/v1/copies': () => ({ json: copiesPage([copy(11, 'PAT-0001')]) }),
+      'PATCH /api/v1/books/4': () => {
+        title = 'Memórias Póstumas'
+        return { json: { ...book, title } }
+      },
+    })
+    renderBooks()
+    await openPanel()
+    expect(await screen.findByText('Exemplares de “Dom Casmurro”')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Editar Dom Casmurro' }))
+    const field = await screen.findByLabelText(/^Título/)
+    await userEvent.clear(field)
+    await userEvent.type(field, 'Memórias Póstumas')
+    await userEvent.click(screen.getByRole('button', { name: 'Salvar livro' }))
+    expect(await screen.findByText('Exemplares de “Memórias Póstumas”')).toBeInTheDocument()
+  })
+})
