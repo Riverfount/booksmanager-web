@@ -366,13 +366,30 @@ describe('livros: painel de exemplares', () => {
       expect(calls.some((c) => c.key === 'PATCH /api/v1/copies/11')).toBe(false)
     })
 
-    it('"Voltou a disponível" continua direto, sem confirmação', async () => {
-      const calls = mockApi({ ...routes(), 'GET /api/v1/copies': () => ({ json: copiesPage([copy(11, 'PAT-0001', 'DAMAGED')]) }), 'PATCH /api/v1/copies/11': () => ({ json: copy(11, 'PAT-0001') }) })
+    it.each([['danificado', 'DAMAGED'], ['perdido', 'LOST']])('exemplar %s volta a disponível direto, sem confirmação', async (_label, status) => {
+      const calls = mockApi({ ...routes(), 'GET /api/v1/copies': () => ({ json: copiesPage([copy(11, 'PAT-0001', status)]) }), 'PATCH /api/v1/copies/11': () => ({ json: copy(11, 'PAT-0001') }) })
       renderBooks()
       await openPanel()
       await userEvent.click(await screen.findByRole('button', { name: 'Voltou a disponível' }))
       await waitFor(() => expect(calls.find((c) => c.key === 'PATCH /api/v1/copies/11')?.body).toEqual({ status: 'AVAILABLE' }))
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    })
+
+    it('o perdido não oferece "Perdido" nem "Danificado" de novo', async () => {
+      mockApi({ ...routes(), 'GET /api/v1/copies': () => ({ json: copiesPage([copy(11, 'PAT-0001', 'LOST')]) }) })
+      renderBooks()
+      await openPanel()
+      await screen.findByRole('button', { name: 'Voltou a disponível' })
+      expect(screen.queryByRole('button', { name: 'Perdido' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Danificado' })).not.toBeInTheDocument()
+    })
+
+    it('o emprestado e o disponível não oferecem "Voltou a disponível"', async () => {
+      mockApi({ ...routes(), 'GET /api/v1/copies': () => ({ json: copiesPage([copy(11, 'PAT-0001', 'AVAILABLE'), copy(12, 'PAT-0002', 'BORROWED')]) }) })
+      renderBooks()
+      await openPanel()
+      await screen.findByText('PAT-0002')
+      expect(screen.queryByRole('button', { name: 'Voltou a disponível' })).not.toBeInTheDocument()
     })
   })
 

@@ -364,7 +364,7 @@ function CopiesPanel({ book, onChanged, onClose }: { book: Book; onChanged: () =
                 <Button small disabled={reactivate.isPending} onClick={() => reactivate.mutate(c.id)}>Reativar<span className="sr-only"> {c.assetCode}</span></Button>
               ) : c.status !== 'BORROWED' && (
                 <div className="flex flex-wrap gap-2">
-                  {c.status === 'DAMAGED' && <Button small variant="ghost" onClick={() => changeStatus.mutate({ id: c.id, status: 'AVAILABLE' })}>Voltou a disponível</Button>}
+                  {(c.status === 'DAMAGED' || c.status === 'LOST') && <Button small variant="ghost" onClick={() => changeStatus.mutate({ id: c.id, status: 'AVAILABLE' })}>Voltou a disponível</Button>}
                   {c.status !== 'DAMAGED' && c.status !== 'LOST' && <Button small variant="danger" onClick={() => setConfirming({ copy: c, status: 'DAMAGED' })}>Danificado</Button>}
                   {c.status !== 'LOST' && <Button small variant="danger" onClick={() => setConfirming({ copy: c, status: 'LOST' })}>Perdido</Button>}
                   <Button small onClick={() => inactivate.mutate(c.id)}>Inativar</Button>
