@@ -278,7 +278,7 @@ export function BooksPage() {
               <TextField id={fid('publisher')} label="Editora" required maxLength={255} autoComplete="off" error={errors.publisher?.message} {...register('publisher')} />
               <TextField id={fid('year')} label="Ano" required inputMode="numeric" placeholder="1899" error={errors.year?.message} {...yearField} />
             </div>
-            <CategoryPicker id={fid('categoryId')} legend="Categoria" required value={category} onChange={setCategoryChoice} error={errors.categoryId?.message} />
+            <CategoryPicker id={fid('categoryId')} legend="Categoria" required creatable value={category} onChange={setCategoryChoice} error={errors.categoryId?.message} />
             <AuthorPicker id={fid('authorIds')} value={chosen} onChange={setAuthors} error={errors.authorIds?.message} />
             <div className="flex justify-end gap-3 pt-1">
               <Button onClick={cancel}>Cancelar</Button>

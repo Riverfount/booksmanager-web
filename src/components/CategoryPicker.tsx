@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, call } from '../api/client'
 import { useDebounced } from '../lib/useDebounced'
-import { FieldError } from './ui'
+import { NewCategoryDialog } from './NewCategoryDialog'
+import { Button, FieldError } from './ui'
 
 export type CategoryChoice = { id: number; name: string }
 
 /** Category by search (not a dropdown, which the API page limit would cap): type, see up to 5 results and pick one. */
-export function CategoryPicker({ value, onChange, error, id, legend, searchLabel = 'Buscar categoria pelo nome', required, compact, reader }: {
+export function CategoryPicker({ value, onChange, error, id, legend, searchLabel = 'Buscar categoria pelo nome', required, compact, reader, creatable }: {
   value: CategoryChoice | null
   onChange: (v: CategoryChoice | null) => void
   error?: string
@@ -20,8 +21,11 @@ export function CategoryPicker({ value, onChange, error, id, legend, searchLabel
   compact?: boolean
   /** For the reader area: searches `/me/categories` (active ones only) and skips the staff-only lookup by id. */
   reader?: boolean
+  /** Offers "Cadastrar nova categoria" (staff form only; ignored for filters and the reader area). */
+  creatable?: boolean
 }) {
   const [query, setQuery] = useState('')
+  const [creating, setCreating] = useState(false)
   const q = useDebounced(query.trim())
   const results = useQuery({
     queryKey: ['categories', 'picker', reader ? 'me' : 'staff', q],
@@ -37,6 +41,7 @@ export function CategoryPicker({ value, onChange, error, id, legend, searchLabel
   })
   const items = results.data?.items ?? []
   const inactive = !!value && chosen.data?.active === false
+  const canCreate = !!creatable && !compact && !reader
 
   return (
     <fieldset id={id} aria-describedby={error ? `${id}-err` : undefined} className="m-0 flex min-w-0 flex-col gap-2.5 border-0 p-0">
@@ -82,12 +87,25 @@ export function CategoryPicker({ value, onChange, error, id, legend, searchLabel
               {value?.id === c.id && <span className="text-xs text-green">Selecionada</span>}
             </button>
           ))}
-          {results.data && results.data.totalItems > items.length && (
-            <span className="bg-bg0 px-3 py-2.5 text-xs text-muted">Mostrando {items.length} de {results.data.totalItems}. Continue digitando para filtrar.</span>
+          {(canCreate || (results.data && results.data.totalItems > items.length)) && (
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-bg0 px-3 py-2.5 text-xs text-muted">
+              <span>{results.data && results.data.totalItems > items.length ? `Mostrando ${items.length} de ${results.data.totalItems}. Continue digitando para filtrar.` : ''}</span>
+              {canCreate && <Button small variant="ghost" onClick={() => setCreating(true)}>Cadastrar nova categoria</Button>}
+            </div>
           )}
         </div>
       )}
       <FieldError id={`${id}-err`} message={error} />
+      {creating && (
+        <NewCategoryDialog
+          initialName={query.trim()}
+          onClose={() => setCreating(false)}
+          onCreated={(c) => {
+            onChange(c)
+            setCreating(false)
+          }}
+        />
+      )}
     </fieldset>
   )
 }
