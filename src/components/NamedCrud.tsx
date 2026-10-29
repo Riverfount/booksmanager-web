@@ -106,7 +106,7 @@ export function NamedCrud(p: Props) {
                 rowKey={(i) => i.id}
                 columns={[
                   { header: 'Nome', width: '3fr', cell: (i) => <span className="font-semibold">{i.name}</span> },
-                  { header: 'Situação', width: '1fr', cell: (i) => <Badge color={i.active ? '#8ec07c' : '#a89984'}>{i.active ? 'Ativo' : 'Inativo'}</Badge> },
+                  { header: 'Situação', width: '1fr', cell: (i) => <Badge color={i.active ? 'var(--color-green)' : 'var(--color-muted)'}>{i.active ? 'Ativo' : 'Inativo'}</Badge> },
                   {
                     header: 'Ações',
                     width: '1fr',
@@ -114,7 +114,7 @@ export function NamedCrud(p: Props) {
                     cell: (i) => i.active ? (
                       <div className="flex gap-1">
                         <IconButton label={`Editar ${i.name}`} onClick={() => startEdit(i)}><Icon name="edit" size={18} /></IconButton>
-                        <IconButton label={`Inativar ${i.name}`} onClick={() => setRemoving(i)} style={{ color: '#fe8019' }}><Icon name="ban" size={18} /></IconButton>
+                        <IconButton label={`Inativar ${i.name}`} onClick={() => setRemoving(i)} style={{ color: 'var(--color-orange)' }}><Icon name="ban" size={18} /></IconButton>
                       </div>
                     ) : isAdmin && (
                       <Button small disabled={reactivate.isPending} onClick={() => reactivate.mutate({ item: i })}>Reativar<span className="sr-only"> {i.name}</span></Button>

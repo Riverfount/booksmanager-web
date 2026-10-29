@@ -61,7 +61,7 @@ export function CatalogPage() {
                 { header: 'Livro', width: '2.2fr', cell: (b) => (<div className="flex flex-col"><span className="font-semibold">{b.title}</span><span className="text-xs text-muted">{[b.publisher, b.publicationYear].filter(Boolean).join(', ') || '—'}</span></div>) },
                 { header: 'Autores', width: '1.5fr', cell: (b) => <span className="text-fg2">{b.authors.map((x) => x.name).join(', ')}</span> },
                 { header: 'Categoria', width: '1fr', cell: (b) => <span className="text-fg2">{b.category.name}</span> },
-                { header: 'Disponibilidade', width: '1.1fr', cell: (b) => <Badge color={b.availableCopies > 0 ? '#8ec07c' : '#fb4934'}>{b.availableCopies > 0 ? `${b.availableCopies} ${b.availableCopies === 1 ? 'disponível' : 'disponíveis'}` : 'Indisponível'}</Badge> },
+                { header: 'Disponibilidade', width: '1.1fr', cell: (b) => <Badge color={b.availableCopies > 0 ? 'var(--color-green)' : 'var(--color-red)'}>{b.availableCopies > 0 ? `${b.availableCopies} ${b.availableCopies === 1 ? 'disponível' : 'disponíveis'}` : 'Indisponível'}</Badge> },
                 {
                   header: 'Ação',
                   width: '1fr',

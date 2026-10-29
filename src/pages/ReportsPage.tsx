@@ -68,7 +68,7 @@ function OverdueReport() {
               { header: 'Livro', width: '2fr', cell: (l) => (<div className="flex flex-col"><span className="font-medium">{l.bookTitle}</span><span className="font-mono text-xs text-muted">{l.assetCode}</span></div>) },
               { header: 'Leitor', width: '1.4fr', cell: (l) => <Link to={`/leitores/${l.readerId}`} className="text-fg2">{l.readerName}</Link> },
               { header: 'Devolução prevista', width: '1fr', cell: (l) => <span className="font-mono text-[13px] text-fg2">{formatDate(l.dueDate)}</span> },
-              { header: 'Atraso', width: '0.8fr', cell: (l) => <Badge color="#fb4934">{l.daysLate} {l.daysLate === 1 ? 'dia' : 'dias'}</Badge> },
+              { header: 'Atraso', width: '0.8fr', cell: (l) => <Badge color="var(--color-red)">{l.daysLate} {l.daysLate === 1 ? 'dia' : 'dias'}</Badge> },
             ]}
           />
           <Pagination page={report.data.page} totalPages={report.data.totalPages} totalItems={report.data.totalItems} onPage={setPage} />
@@ -130,9 +130,9 @@ function CollectionReport() {
       {report.isError && <Banner kind="error">{errorMessage(report.error)}</Banner>}
       {d && (
         <section aria-label="Situação do acervo" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-          <Stat label="Exemplares ativos" value={d.totalCopies} color="#fabd2f" />
+          <Stat label="Exemplares ativos" value={d.totalCopies} color="var(--color-yellow)" />
           {statuses.map((s) => <Stat key={s} label={copyStatusInfo[s].label} value={d.activeByStatus[s] ?? 0} color={copyStatusInfo[s].color} />)}
-          <Stat label="Inativos" value={d.inactiveCopies} color="#a89984" />
+          <Stat label="Inativos" value={d.inactiveCopies} color="var(--color-muted)" />
         </section>
       )}
     </>

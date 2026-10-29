@@ -36,7 +36,7 @@ export function BookPicker({ id, label = 'Livro', required = true, searchLabel =
               {books.data.items.map((b) => (
                 <button key={b.id} type="button" onClick={() => onChange({ id: b.id, title: b.title, availableCopies: b.availableCopies })} className="flex min-h-11 w-full items-center justify-between gap-3 border-0 border-b border-bg1 bg-transparent px-3 text-left text-fg">
                   <span>{b.title}</span>
-                  <Badge color={b.availableCopies === 0 ? '#fb4934' : '#8ec07c'}>{b.availableCopies} disponíveis</Badge>
+                  <Badge color={b.availableCopies === 0 ? 'var(--color-red)' : 'var(--color-green)'}>{b.availableCopies} disponíveis</Badge>
                 </button>
               ))}
             </div>

@@ -8,11 +8,11 @@ export function reservationState(r: StateInput): { label: string; color: string 
   switch (r.status) {
     case 'ACTIVE':
       return r.copyId !== undefined || r.pickupDeadline !== undefined
-        ? { label: 'Exemplar guardado', color: '#83a598' }
-        : { label: r.queuePosition !== undefined ? `Na fila · ${r.queuePosition}º` : 'Na fila', color: '#fabd2f' }
-    case 'FULFILLED': return { label: 'Retirada', color: '#8ec07c' }
-    case 'CANCELLED': return { label: 'Cancelada', color: '#a89984' }
-    case 'EXPIRED': return { label: 'Expirada', color: '#fb4934' }
+        ? { label: 'Exemplar guardado', color: 'var(--color-blue)' }
+        : { label: r.queuePosition !== undefined ? `Na fila · ${r.queuePosition}º` : 'Na fila', color: 'var(--color-yellow)' }
+    case 'FULFILLED': return { label: 'Retirada', color: 'var(--color-green)' }
+    case 'CANCELLED': return { label: 'Cancelada', color: 'var(--color-muted)' }
+    case 'EXPIRED': return { label: 'Expirada', color: 'var(--color-red)' }
   }
 }
 

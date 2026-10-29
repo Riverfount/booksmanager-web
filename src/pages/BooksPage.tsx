@@ -218,7 +218,7 @@ export function BooksPage() {
                     { header: 'Livro', width: '2.2fr', cell: (b) => (<div className="flex flex-col"><span className="font-semibold">{b.title}</span><span className="font-mono text-xs text-muted">{b.isbn}</span></div>) },
                     { header: 'Autor', width: '1.5fr', cell: (b) => <span className="text-fg2">{b.authors.map((a) => a.name).join(', ')}</span> },
                     { header: 'Categoria', width: '1fr', cell: (b) => <span className="text-fg2">{b.category.name}</span> },
-                    { header: 'Disponíveis', width: '0.9fr', cell: (b) => <Badge color={b.totalCopies === 0 ? '#a89984' : b.availableCopies === 0 ? '#fb4934' : '#8ec07c'}>{b.availableCopies} / {b.totalCopies}</Badge> },
+                    { header: 'Disponíveis', width: '0.9fr', cell: (b) => <Badge color={b.totalCopies === 0 ? 'var(--color-muted)' : b.availableCopies === 0 ? 'var(--color-red)' : 'var(--color-green)'}>{b.availableCopies} / {b.totalCopies}</Badge> },
                     {
                       header: 'Ações',
                       width: '1.2fr',
@@ -227,7 +227,7 @@ export function BooksPage() {
                         <div className="flex gap-1">
                           <IconButton label={`Ver exemplares de ${b.title}`} onClick={() => setSelected(b)}><Icon name="eye" size={18} /></IconButton>
                           <IconButton label={`Editar ${b.title}`} onClick={() => startEdit(b)}><Icon name="edit" size={18} /></IconButton>
-                          <IconButton label={`Inativar ${b.title}`} onClick={() => setRemoving(b)} style={{ color: '#fe8019' }}><Icon name="ban" size={18} /></IconButton>
+                          <IconButton label={`Inativar ${b.title}`} onClick={() => setRemoving(b)} style={{ color: 'var(--color-orange)' }}><Icon name="ban" size={18} /></IconButton>
                         </div>
                       ) : isAdmin && (
                         <Button small disabled={reactivate.isPending} onClick={() => reactivate.mutate(b.id)}>Reativar<span className="sr-only"> {b.title}</span></Button>

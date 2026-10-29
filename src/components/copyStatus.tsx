@@ -2,11 +2,11 @@ import type { CopyStatus } from '../api/types'
 import { Badge } from './ui'
 
 export const copyStatusInfo: Record<CopyStatus, { label: string; color: string }> = {
-  AVAILABLE: { label: 'Disponível', color: '#8ec07c' },
-  BORROWED: { label: 'Emprestado', color: '#fabd2f' },
-  RESERVED: { label: 'Reservado', color: '#83a598' },
-  DAMAGED: { label: 'Danificado', color: '#fe8019' },
-  LOST: { label: 'Perdido', color: '#fb4934' },
+  AVAILABLE: { label: 'Disponível', color: 'var(--color-green)' },
+  BORROWED: { label: 'Emprestado', color: 'var(--color-yellow)' },
+  RESERVED: { label: 'Reservado', color: 'var(--color-blue)' },
+  DAMAGED: { label: 'Danificado', color: 'var(--color-orange)' },
+  LOST: { label: 'Perdido', color: 'var(--color-red)' },
 }
 
 export const CopyStatusBadge = ({ status }: { status: CopyStatus }) => (

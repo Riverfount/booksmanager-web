@@ -21,7 +21,7 @@ const empty: Values = { name: '', document: '', email: '', phone: '', birthDate:
 type Filter = 'active' | 'inactive' | 'blocked'
 
 const situation = (r: ReaderSummary) =>
-  !r.active ? { text: 'Inativo', color: '#a89984' } : r.blocked ? { text: 'Bloqueado', color: '#fb4934' } : { text: 'Ativo', color: '#8ec07c' }
+  !r.active ? { text: 'Inativo', color: 'var(--color-muted)' } : r.blocked ? { text: 'Bloqueado', color: 'var(--color-red)' } : { text: 'Ativo', color: 'var(--color-green)' }
 
 export function ReadersPage() {
   const qc = useQueryClient()
@@ -111,8 +111,8 @@ export function ReadersPage() {
                     cell: (r) => r.active && (
                       <div className="flex gap-1">
                         <IconButton label={`Editar ${r.name}`} onClick={() => loadForEdit.mutate(r.id)}><Icon name="edit" size={18} /></IconButton>
-                        <IconButton label={r.blocked ? `Desbloquear ${r.name}` : `Bloquear ${r.name}`} onClick={() => toggleBlock.mutate(r)} style={{ color: '#fabd2f' }}><Icon name="lock" size={18} /></IconButton>
-                        <IconButton label={`Inativar ${r.name}`} onClick={() => setRemoving(r)} style={{ color: '#fe8019' }}><Icon name="ban" size={18} /></IconButton>
+                        <IconButton label={r.blocked ? `Desbloquear ${r.name}` : `Bloquear ${r.name}`} onClick={() => toggleBlock.mutate(r)} style={{ color: 'var(--color-yellow)' }}><Icon name="lock" size={18} /></IconButton>
+                        <IconButton label={`Inativar ${r.name}`} onClick={() => setRemoving(r)} style={{ color: 'var(--color-orange)' }}><Icon name="ban" size={18} /></IconButton>
                       </div>
                     ),
                   },
