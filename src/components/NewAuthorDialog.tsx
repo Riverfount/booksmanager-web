@@ -27,6 +27,19 @@ export function NewAuthorDialog({ initialName, onCreated, onClose }: { initialNa
   // The homonym 422 is not a failure to report: it asks the operator to confirm.
   const existingId = existingAuthorId(save.error)
   const homonym = existingId !== undefined
+  // The chip must show the name the collection has (it may differ from the typed one in case); if the lookup fails, the typed name is enough.
+  const useExisting = useMutation({
+    mutationFn: async (id: number) => {
+      const typed = getValues('name').trim()
+      try {
+        const a = await call(api.GET('/api/v1/authors/{id}', { params: { path: { id } } }))
+        return { id, name: a.name || typed }
+      } catch {
+        return { id, name: typed }
+      }
+    },
+    onSuccess: onCreated,
+  })
   const serverBanner = save.isError && !homonym ? serverErrors(save.error, { name: 'name' }).banner : undefined
 
   return createPortal(
@@ -47,7 +60,7 @@ export function NewAuthorDialog({ initialName, onCreated, onClose }: { initialNa
             <div className="flex flex-wrap justify-end gap-3">
               <Button onClick={() => save.reset()}>Voltar</Button>
               <Button disabled={save.isPending} onClick={() => save.mutate({ name: getValues('name').trim(), allowDuplicate: true })}>Salvar mesmo assim</Button>
-              <Button variant="primary" onClick={() => onCreated({ id: existingId, name: getValues('name').trim() })}>Usar autor existente</Button>
+              <Button variant="primary" disabled={useExisting.isPending} onClick={() => useExisting.mutate(existingId)}>Usar autor existente</Button>
             </div>
           </>
         ) : (
