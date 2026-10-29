@@ -239,7 +239,7 @@ export function BooksPage() {
               </>
             )}
           </Card>
-          {selected && <CopiesPanel book={selected} onChanged={refresh} onClose={() => setSelected(null)} />}
+          {selected && <CopiesPanel book={books.data?.items.find((b) => b.id === selected.id) ?? selected} onChanged={refresh} onClose={() => setSelected(null)} />}
         </div>
 
         <FormCard title={editing ? 'Editar livro' : 'Novo livro'} className="flex-[1_1_340px]">
@@ -306,11 +306,15 @@ function CopiesPanel({ book, onChanged, onClose }: { book: Book; onChanged: () =
   const qc = useQueryClient()
   const [added, setAdded] = useState(false)
   const [showActive, setShowActive] = useState<'true' | 'false'>('true')
+  const [page, setPage] = useState(0)
+  const [confirming, setConfirming] = useState<{ copy: { id: number; assetCode: string }; status: 'DAMAGED' | 'LOST' } | null>(null)
   const { isAdmin } = useAuth()
   const copies = useQuery({
-    queryKey: ['copies', book.id, showActive],
-    queryFn: () => call(api.GET('/api/v1/copies', { params: { query: { bookId: book.id, active: showActive === 'true', size: 100 } } })),
+    queryKey: ['copies', book.id, showActive, page],
+    queryFn: () => call(api.GET('/api/v1/copies', { params: { query: { bookId: book.id, active: showActive === 'true', page } } })),
   })
+  // Inactivating the last copy of the last page leaves it empty: step back to the previous one.
+  if (copies.data && copies.data.items.length === 0 && page > 0) setPage(page - 1)
   const form = useForm<z.infer<typeof copySchema>>({ resolver: zodResolver(copySchema), defaultValues: { assetCode: '' } })
   const { register, handleSubmit, reset, formState: { errors } } = form
   const refresh = () => {
@@ -341,7 +345,7 @@ function CopiesPanel({ book, onChanged, onClose }: { book: Book; onChanged: () =
         <h2 className="m-0 text-lg font-semibold">Exemplares de “{book.title}”</h2>
         <Button small onClick={onClose}>Fechar</Button>
       </div>
-      <Pills value={showActive} onChange={setShowActive} options={[{ value: 'true', label: 'Ativos' }, { value: 'false', label: 'Inativos' }]} />
+      <Pills value={showActive} onChange={(v) => { setShowActive(v); setPage(0) }} options={[{ value: 'true', label: 'Ativos' }, { value: 'false', label: 'Inativos' }]} />
       {error && <Banner kind="error">{errorMessage(error)}</Banner>}
       {copies.isPending && <Spinner />}
       {copies.data && copies.data.items.length === 0 && <EmptyState>Nenhum exemplar cadastrado.</EmptyState>}
@@ -361,8 +365,8 @@ function CopiesPanel({ book, onChanged, onClose }: { book: Book; onChanged: () =
               ) : c.status !== 'BORROWED' && (
                 <div className="flex flex-wrap gap-2">
                   {c.status === 'DAMAGED' && <Button small variant="ghost" onClick={() => changeStatus.mutate({ id: c.id, status: 'AVAILABLE' })}>Voltou a disponível</Button>}
-                  {c.status !== 'DAMAGED' && c.status !== 'LOST' && <Button small variant="danger" onClick={() => changeStatus.mutate({ id: c.id, status: 'DAMAGED' })}>Danificado</Button>}
-                  {c.status !== 'LOST' && <Button small variant="danger" onClick={() => changeStatus.mutate({ id: c.id, status: 'LOST' })}>Perdido</Button>}
+                  {c.status !== 'DAMAGED' && c.status !== 'LOST' && <Button small variant="danger" onClick={() => setConfirming({ copy: c, status: 'DAMAGED' })}>Danificado</Button>}
+                  {c.status !== 'LOST' && <Button small variant="danger" onClick={() => setConfirming({ copy: c, status: 'LOST' })}>Perdido</Button>}
                   <Button small onClick={() => inactivate.mutate(c.id)}>Inativar</Button>
                 </div>
               ),
@@ -370,6 +374,7 @@ function CopiesPanel({ book, onChanged, onClose }: { book: Book; onChanged: () =
           ]}
         />
       )}
+      {copies.data && <Pagination page={copies.data.page} totalPages={copies.data.totalPages} totalItems={copies.data.totalItems} onPage={setPage} />}
       <form noValidate onSubmit={handleSubmit((v) => { setAdded(false); add.mutate(v) })} className="flex flex-wrap items-start gap-3 pt-1">
         <div className="min-w-56 flex-1">
           <TextField id={fid('assetCode')} label="Novo exemplar" required mono maxLength={50} autoComplete="off" placeholder="Código de patrimônio, ex.: PAT-0006" error={errors.assetCode?.message} {...register('assetCode')} />
@@ -377,6 +382,19 @@ function CopiesPanel({ book, onChanged, onClose }: { book: Book; onChanged: () =
         <Button type="submit" variant="primary" disabled={add.isPending} className="mt-[26px]">Adicionar exemplar</Button>
       </form>
       {added && !add.isPending && <Banner kind="success">Exemplar adicionado.</Banner>}
+      {confirming && (
+        <Dialog title={confirming.status === 'DAMAGED' ? 'Marcar como danificado' : 'Marcar como perdido'} onClose={() => setConfirming(null)}>
+          <p className="m-0 text-sm text-fg2">
+            {confirming.status === 'DAMAGED'
+              ? `O exemplar ${confirming.copy.assetCode} fica indisponível para empréstimo até voltar a disponível.`
+              : `O exemplar ${confirming.copy.assetCode} deixa de poder ser emprestado e passa a constar como perdido.`}
+          </p>
+          <div className="flex justify-end gap-3">
+            <Button onClick={() => setConfirming(null)}>Cancelar</Button>
+            <Button variant="danger" disabled={changeStatus.isPending} onClick={() => changeStatus.mutate({ id: confirming.copy.id, status: confirming.status }, { onSettled: () => setConfirming(null) })}>Confirmar</Button>
+          </div>
+        </Dialog>
+      )}
     </Card>
   )
 }
