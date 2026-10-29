@@ -154,4 +154,13 @@ describe('AuthorPicker: cadastrar novo autor', () => {
       expect(within(dialog).queryByRole('button', { name: 'Usar autor existente' })).not.toBeInTheDocument()
     })
   })
+
+  it('400 com errors marca o campo Nome do diálogo, sem banner', async () => {
+    mockApi({ 'POST /api/v1/authors': () => ({ status: 400, json: { detail: 'Dados inválidos.', errors: [{ field: 'name', message: 'o nome tem caracteres inválidos' }] } }) })
+    renderPicker()
+    const dialog = await open('Ana')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Cadastrar autor' }))
+    await waitFor(() => expect(within(dialog).getByLabelText(/^Nome/)).toHaveAccessibleDescription('O nome tem caracteres inválidos'))
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument()
+  })
 })

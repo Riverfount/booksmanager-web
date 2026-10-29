@@ -6,7 +6,7 @@ import type { z } from 'zod'
 import { api, call, errorMessage } from '../api/client'
 import type { LibraryConfiguration } from '../api/types'
 import { Banner, Button, Card, ErrorSummary, PageHeader, RequiredNote, SelectField, Spinner, TextField } from '../components/ui'
-import { errorItems, errorTitle, fid } from '../lib/form'
+import { applyServerErrors, errorItems, errorTitle, fid, serverErrors } from '../lib/form'
 import { configSchema } from '../lib/schemas'
 
 type Values = z.infer<typeof configSchema>
@@ -23,13 +23,18 @@ const toValues = (c: LibraryConfiguration): Values => ({
   reservationPickupDays: String(c.reservationPickupDays),
   dueSoonNoticeDays: String(c.dueSoonNoticeDays),
 })
+/** Field paths of the API → form fields (same names; the policy has no error slot, so its errors stay in the banner). */
+const serverFields = {
+  dailyFineAmount: 'dailyFineAmount', fineCap: 'fineCap', suspensionDaysPerDay: 'suspensionDaysPerDay', suspensionCapDays: 'suspensionCapDays',
+  loanPeriodDays: 'loanPeriodDays', loanLimit: 'loanLimit', renewalLimit: 'renewalLimit', reservationPickupDays: 'reservationPickupDays', dueSoonNoticeDays: 'dueSoonNoticeDays',
+}
 const dec = (s: string) => Number(s.replace(',', '.'))
 
 export function ConfigurationPage() {
   const qc = useQueryClient()
   const [done, setDone] = useState(false)
   const config = useQuery({ queryKey: ['configuration'], queryFn: () => call(api.GET('/api/v1/library-configuration')) })
-  const { register, handleSubmit, reset, watch, formState: { errors } } = useForm<Values>({ resolver: zodResolver(configSchema) })
+  const { register, handleSubmit, reset, setError, watch, formState: { errors } } = useForm<Values>({ resolver: zodResolver(configSchema) })
   useEffect(() => { if (config.data) reset(toValues(config.data)) }, [config.data, reset])
   const policy = watch('penaltyPolicy')
   const usesFine = policy === 'FINE' || policy === 'BOTH'
@@ -50,6 +55,7 @@ export function ConfigurationPage() {
         dueSoonNoticeDays: Number(v.dueSoonNoticeDays),
       },
     })),
+    onError: (error) => applyServerErrors(serverErrors(error, serverFields), setError),
     onSuccess: (c) => {
       setDone(true)
       reset(toValues(c))
@@ -58,6 +64,7 @@ export function ConfigurationPage() {
     },
   })
 
+  const serverBanner = save.isError ? serverErrors(save.error, serverFields).banner : undefined
   const items = errorItems(errors, {
     dailyFineAmount: 'Multa por dia', fineCap: 'Teto da multa', suspensionDaysPerDay: 'Dias de suspensão por dia', suspensionCapDays: 'Teto da suspensão',
     loanPeriodDays: 'Prazo de empréstimo', loanLimit: 'Limite de empréstimos', renewalLimit: 'Limite de renovações', reservationPickupDays: 'Prazo de retirada de reservas', dueSoonNoticeDays: 'Aviso de vencimento',
@@ -73,7 +80,7 @@ export function ConfigurationPage() {
           <form noValidate onSubmit={handleSubmit((v) => { setDone(false); save.mutate(v) })} className="flex flex-col gap-5">
             <RequiredNote />
             {done && !save.isPending && <Banner kind="success">Configuração salva. A nova política vale só para atrasos futuros.</Banner>}
-            {save.isError && <Banner kind="error">{errorMessage(save.error)}</Banner>}
+            {serverBanner && <Banner kind="error">{serverBanner}</Banner>}
             <ErrorSummary title={errorTitle(items.length, 'salvar a configuração')} items={items} />
 
             <fieldset className="m-0 flex flex-col gap-3 rounded-lg border border-line p-4">

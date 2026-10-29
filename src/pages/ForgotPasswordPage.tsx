@@ -3,18 +3,22 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import type { z } from 'zod'
-import { api, call, errorMessage } from '../api/client'
+import { api, call } from '../api/client'
 import { PublicShell } from '../components/PublicShell'
 import { Banner, Button, TextField } from '../components/ui'
-import { fid } from '../lib/form'
+import { applyServerErrors, fid, serverErrors } from '../lib/form'
 import { forgotPasswordSchema } from '../lib/schemas'
 
 type Values = z.infer<typeof forgotPasswordSchema>
 
 /** A reader asks for a reset link. The API always answers 204, so the screen never says whether the e-mail exists. */
 export function ForgotPasswordPage() {
-  const { register, handleSubmit, formState: { errors } } = useForm<Values>({ resolver: zodResolver(forgotPasswordSchema), defaultValues: { email: '' } })
-  const ask = useMutation({ mutationFn: (v: Values) => call(api.POST('/api/v1/auth/forgot-password', { body: { email: v.email } })) })
+  const { register, handleSubmit, setError, formState: { errors } } = useForm<Values>({ resolver: zodResolver(forgotPasswordSchema), defaultValues: { email: '' } })
+  const ask = useMutation({
+    mutationFn: (v: Values) => call(api.POST('/api/v1/auth/forgot-password', { body: { email: v.email } })),
+    onError: (error) => applyServerErrors(serverErrors(error, { email: 'email' }), setError),
+  })
+  const serverBanner = ask.isError ? serverErrors(ask.error, { email: 'email' }).banner : undefined
 
   return (
     <PublicShell heading="Esqueci a minha senha">
@@ -23,7 +27,7 @@ export function ForgotPasswordPage() {
       ) : (
         <form noValidate onSubmit={handleSubmit((v) => ask.mutate(v))} className="flex flex-col gap-4">
           <p className="m-0 text-sm text-fg2">Informe o e-mail do seu cadastro na biblioteca. Vamos enviar um link para você escolher uma nova senha.</p>
-          {ask.isError && <Banner kind="error">{errorMessage(ask.error)}</Banner>}
+          {serverBanner && <Banner kind="error">{serverBanner}</Banner>}
           <TextField id={fid('email')} label="E-mail" required type="email" autoComplete="email" error={errors.email?.message} {...register('email')} />
           <Button type="submit" variant="primary" disabled={ask.isPending}>{ask.isPending ? 'Enviando…' : 'Enviar link'}</Button>
         </form>
