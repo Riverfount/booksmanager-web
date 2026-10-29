@@ -33,7 +33,7 @@ export function ReaderPicker({ id, value, onChange, error, label = 'Leitor', req
               {readers.data.items.map((r) => (
                 <button key={r.id} type="button" onClick={() => onChange({ id: r.id, name: r.name })} className="flex min-h-11 w-full items-center justify-between gap-3 border-0 border-b border-bg1 bg-transparent px-3 text-left text-fg">
                   <span>{r.name} <span className="font-mono text-xs text-muted">{r.maskedDocument}</span></span>
-                  {r.blocked && <Badge color="#fb4934">Bloqueado</Badge>}
+                  {r.blocked && <Badge color="var(--color-red)">Bloqueado</Badge>}
                 </button>
               ))}
             </div>

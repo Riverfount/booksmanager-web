@@ -140,7 +140,7 @@ export function Banner({ kind, children }: { kind: 'success' | 'error' | 'info';
   return (
     <div role={kind === 'error' ? 'alert' : 'status'} className={cx('flex items-start gap-2.5 rounded-lg border bg-bg0 px-3.5 py-3 text-sm', color)}>
       {kind === 'success' && (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8ec07c" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-green)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
           <path d="M5 12l5 5 9-10" />
         </svg>
       )}

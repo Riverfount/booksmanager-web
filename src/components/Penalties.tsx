@@ -7,7 +7,7 @@ import { formatDate, formatMoney } from '../lib/dates'
 import { ReasonDialog } from './ReasonDialog'
 import { Badge, Banner, Button, DataTable, EmptyState, Pagination, Pills, Spinner } from './ui'
 
-const fineStatus = { PENDING: { label: 'Pendente', color: '#fabd2f' }, PAID: { label: 'Paga', color: '#8ec07c' }, WAIVED: { label: 'Abonada', color: '#83a598' } } as const
+const fineStatus = { PENDING: { label: 'Pendente', color: 'var(--color-yellow)' }, PAID: { label: 'Paga', color: 'var(--color-green)' }, WAIVED: { label: 'Abonada', color: 'var(--color-blue)' } } as const
 type FineFilter = 'ALL' | 'PENDING' | 'PAID' | 'WAIVED'
 
 export function FinesList({ readerId }: { readerId?: number }) {
@@ -115,7 +115,7 @@ export function SuspensionsList({ readerId }: { readerId?: number }) {
               { header: 'Leitor', width: '1.1fr', cell: (s) => <Link to={`/leitores/${s.readerId}`}>Leitor #{s.readerId}</Link> },
               { header: 'Início', width: '0.9fr', cell: (s) => <span className="font-mono text-[13px]">{formatDate(s.startDate)}</span> },
               { header: 'Libera em', width: '0.9fr', cell: (s) => <span className="font-mono text-[13px]">{formatDate(s.releaseDate)}</span> },
-              { header: 'Situação', width: '1.4fr', cell: (s) => (<div className="flex flex-col gap-1"><Badge color={s.inForce ? '#fb4934' : '#a89984'}>{s.inForce ? 'Em vigor' : 'Encerrada'}</Badge>{s.endedEarlyReason && <span className="text-xs text-muted">Encerrada antes: {s.endedEarlyReason}</span>}</div>) },
+              { header: 'Situação', width: '1.4fr', cell: (s) => (<div className="flex flex-col gap-1"><Badge color={s.inForce ? 'var(--color-red)' : 'var(--color-muted)'}>{s.inForce ? 'Em vigor' : 'Encerrada'}</Badge>{s.endedEarlyReason && <span className="text-xs text-muted">Encerrada antes: {s.endedEarlyReason}</span>}</div>) },
               { header: 'Ações', width: '1fr', label: false, cell: (s) => s.inForce && <Button small onClick={() => setEnding(s.id)}>Encerrar antes</Button> },
             ]}
           />

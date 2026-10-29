@@ -21,8 +21,8 @@ export function ReaderDetailPage() {
       {r && (
         <Card>
           <div className="flex flex-wrap gap-2">
-            <Badge color={r.active ? '#8ec07c' : '#a89984'}>{r.active ? 'Ativo' : 'Inativo'}</Badge>
-            {r.blocked && <Badge color="#fb4934">Bloqueado</Badge>}
+            <Badge color={r.active ? 'var(--color-green)' : 'var(--color-muted)'}>{r.active ? 'Ativo' : 'Inativo'}</Badge>
+            {r.blocked && <Badge color="var(--color-red)">Bloqueado</Badge>}
           </div>
           <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-x-6 gap-y-3 text-sm">
             <Info label="Documento" value={r.document} mono />

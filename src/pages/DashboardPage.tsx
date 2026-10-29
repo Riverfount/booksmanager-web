@@ -5,7 +5,7 @@ import { longDate, formatDate } from '../lib/dates'
 import { LoanStatusBadge } from '../components/loanStatus'
 import { Banner, Card, DataTable, EmptyState, PageHeader, Spinner } from '../components/ui'
 
-const palette = ['#fabd2f', '#83a598', '#d3869b', '#fe8019', '#8ec07c']
+const palette = ['var(--color-yellow)', 'var(--color-blue)', 'var(--color-pink)', 'var(--color-orange)', 'var(--color-green)']
 
 export function DashboardPage() {
   const dashboard = useQuery({ queryKey: ['dashboard'], queryFn: () => call(api.GET('/api/v1/reports/dashboard')) })
@@ -16,10 +16,10 @@ export function DashboardPage() {
   const d = dashboard.data
   const max = Math.max(1, ...(d?.copiesByCategory.map((c) => c.copies) ?? [1]))
   const stats = d && [
-    { label: 'Exemplares no acervo', value: d.totalCopies, hint: 'total ativo', color: '#fabd2f' },
-    { label: 'Empréstimos ativos', value: d.activeLoans, hint: 'em andamento hoje', color: '#8ec07c' },
-    { label: 'Atrasados', value: d.overdueLoans, hint: 'devolução vencida', color: '#fb4934' },
-    { label: 'Leitores suspensos', value: d.suspendedReaders, hint: 'com suspensão em vigor', color: '#83a598' },
+    { label: 'Exemplares no acervo', value: d.totalCopies, hint: 'total ativo', color: 'var(--color-yellow)' },
+    { label: 'Empréstimos ativos', value: d.activeLoans, hint: 'em andamento hoje', color: 'var(--color-green)' },
+    { label: 'Atrasados', value: d.overdueLoans, hint: 'devolução vencida', color: 'var(--color-red)' },
+    { label: 'Leitores suspensos', value: d.suspendedReaders, hint: 'com suspensão em vigor', color: 'var(--color-blue)' },
   ]
 
   return (

@@ -21,7 +21,7 @@ export function MyStandingPage() {
         <>
           <Card>
             <div className="flex flex-wrap items-center gap-3">
-              <Badge color={s.canBorrow ? '#8ec07c' : '#fb4934'}>{s.canBorrow ? 'Você pode pegar livros emprestados' : 'Empréstimos indisponíveis no momento'}</Badge>
+              <Badge color={s.canBorrow ? 'var(--color-green)' : 'var(--color-red)'}>{s.canBorrow ? 'Você pode pegar livros emprestados' : 'Empréstimos indisponíveis no momento'}</Badge>
             </div>
             {s.reasons.length > 0 && (
               <ul aria-label="Motivos" className="m-0 flex list-disc flex-col gap-1 pl-5 text-sm text-fg2">
@@ -35,10 +35,10 @@ export function MyStandingPage() {
             {s.pendingFineTotal > 0 && <p className="m-0 text-sm text-fg2">Há multas pendentes: pague na biblioteca para voltar a emprestar.</p>}
           </Card>
           <section aria-label="Resumo" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-            <Stat label="Empréstimos ativos" value={`${s.activeLoans} / ${s.loanLimit}`} color="#8ec07c" />
-            <Stat label="Em atraso" value={String(s.overdueLoans)} color={s.overdueLoans > 0 ? '#fb4934' : '#a89984'} />
-            <Stat label="Reservas ativas" value={`${s.activeReservations} / ${s.reservationLimit}`} color="#83a598" />
-            <Stat label="Multas pendentes" value={formatMoney(s.pendingFineTotal)} color={s.pendingFineTotal > 0 ? '#fe8019' : '#a89984'} />
+            <Stat label="Empréstimos ativos" value={`${s.activeLoans} / ${s.loanLimit}`} color="var(--color-green)" />
+            <Stat label="Em atraso" value={String(s.overdueLoans)} color={s.overdueLoans > 0 ? 'var(--color-red)' : 'var(--color-muted)'} />
+            <Stat label="Reservas ativas" value={`${s.activeReservations} / ${s.reservationLimit}`} color="var(--color-blue)" />
+            <Stat label="Multas pendentes" value={formatMoney(s.pendingFineTotal)} color={s.pendingFineTotal > 0 ? 'var(--color-orange)' : 'var(--color-muted)'} />
           </section>
           <div className="flex flex-wrap gap-4 text-sm">
             <Link to="/meu/emprestimos">Ver meus empréstimos</Link>

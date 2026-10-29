@@ -27,7 +27,7 @@ A CI (`.github/workflows/ci.yml`) roda `lint`, `typecheck`, `test` e `build`, ne
 ## Convenções
 
 - Texto da interface e mensagens ao usuário em português; identificadores e comentários de código em inglês, conforme a preferência do usuário (hoje parte dos comentários e dos nomes de teste está em português: siga o arquivo que estiver editando).
-- Estilo com Tailwind e tokens do tema Gruvbox (`bg-bg0`, `text-fg2`, `border-line`...), definidos em `src/index.css`; evite cores em hex soltas.
+- Estilo com Tailwind e tokens do tema Gruvbox (`bg-bg0`, `text-fg2`, `border-line`...), definidos em `src/index.css`; não use cores em hex soltas (em `style` ou atributos SVG, use `var(--color-green)` etc.). `src/lib/theme.test.ts` falha se algum arquivo de código tiver hex.
 - Componentes de interface compartilhados estão em `src/components/ui.tsx`; reutilize-os antes de criar outro.
 
 ## Pontos de atenção

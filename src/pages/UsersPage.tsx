@@ -87,8 +87,8 @@ export function UsersPage() {
                 rowKey={(u) => u.id}
                 columns={[
                   { header: 'Login', width: '1.5fr', cell: (u) => (<div className="flex flex-col"><span className="font-mono font-semibold">{u.login}</span>{u.displayName && <span className="text-xs text-muted">{u.displayName}</span>}</div>) },
-                  { header: 'Perfil', width: '1fr', cell: (u) => <Badge color={u.role === 'ADMIN' ? '#fe8019' : '#8ec07c'}>{roleLabel[u.role]}</Badge> },
-                  { header: 'Situação', width: '1.5fr', cell: (u) => <span className="text-[13px] font-medium" style={{ color: !u.active ? '#a89984' : u.blocked ? '#fb4934' : '#8ec07c' }}>{!u.active ? 'Inativo' : u.blocked ? `Bloqueado até ${formatDateTime(u.blockedUntil)}` : 'Ativo'}</span> },
+                  { header: 'Perfil', width: '1fr', cell: (u) => <Badge color={u.role === 'ADMIN' ? 'var(--color-orange)' : 'var(--color-green)'}>{roleLabel[u.role]}</Badge> },
+                  { header: 'Situação', width: '1.5fr', cell: (u) => <span className="text-[13px] font-medium" style={{ color: !u.active ? 'var(--color-muted)' : u.blocked ? 'var(--color-red)' : 'var(--color-green)' }}>{!u.active ? 'Inativo' : u.blocked ? `Bloqueado até ${formatDateTime(u.blockedUntil)}` : 'Ativo'}</span> },
                   {
                     header: 'Ações',
                     width: '1.7fr',
@@ -97,8 +97,8 @@ export function UsersPage() {
                       <div className="flex gap-1">
                         <IconButton label={`Editar ${u.login}`} onClick={() => startEdit(u)}><Icon name="edit" size={18} /></IconButton>
                         <IconButton label={`Redefinir senha de ${u.login}`} onClick={() => setResetting(u)}><Icon name="key" size={18} /></IconButton>
-                        {u.blocked && <IconButton label={`Desbloquear ${u.login}`} onClick={() => unblock.mutate(u.id)} style={{ color: '#fabd2f' }}><Icon name="lock" size={18} /></IconButton>}
-                        <IconButton label={`Inativar ${u.login}`} onClick={() => setRemoving(u)} style={{ color: '#fe8019' }}><Icon name="ban" size={18} /></IconButton>
+                        {u.blocked && <IconButton label={`Desbloquear ${u.login}`} onClick={() => unblock.mutate(u.id)} style={{ color: 'var(--color-yellow)' }}><Icon name="lock" size={18} /></IconButton>}
+                        <IconButton label={`Inativar ${u.login}`} onClick={() => setRemoving(u)} style={{ color: 'var(--color-orange)' }}><Icon name="ban" size={18} /></IconButton>
                       </div>
                     ),
                   },
