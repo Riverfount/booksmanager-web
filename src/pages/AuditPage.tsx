@@ -3,33 +3,30 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import { api, call, errorMessage } from '../api/client'
 import type { AuditAction, AuditEntry, AuditTargetType } from '../api/types'
+import { UserPicker, type UserChoice } from '../components/UserPicker'
 import { Banner, Button, Card, DataTable, EmptyState, PageHeader, Pagination, SelectField, Spinner, TextField } from '../components/ui'
 import { actionLabel, actions, auditFilterError, targetLabel, targetTypes } from '../lib/audit'
 import { formatDateTime } from '../lib/dates'
 import { fid } from '../lib/form'
 import { useDebounced } from '../lib/useDebounced'
 
-const none = { actorId: '', action: '', targetType: '', targetId: '', from: '', to: '' }
+const none = { action: '', targetType: '', targetId: '', from: '', to: '' }
 
 /** Audit trail (RF27), administrator only: newest first, with optional filters that combine. */
 export function AuditPage() {
   const [filters, setFilters] = useState(none)
+  const [actor, setActor] = useState<UserChoice | null>(null)
   const [page, setPage] = useState(0)
   const targetId = useDebounced(filters.targetId.trim())
   const error = auditFilterError({ ...filters, targetId })
 
-  const users = useQuery({
-    queryKey: ['users', 'actors'],
-    queryFn: () => call(api.GET('/api/v1/users', { params: { query: { size: 100 } } })),
-    staleTime: 60_000,
-  })
   const trail = useQuery({
-    queryKey: ['audit', filters.actorId, filters.action, filters.targetType, targetId, filters.from, filters.to, page],
+    queryKey: ['audit', actor?.id, filters.action, filters.targetType, targetId, filters.from, filters.to, page],
     enabled: !error,
     queryFn: () => call(api.GET('/api/v1/audit-log', {
       params: {
         query: {
-          actorId: filters.actorId ? Number(filters.actorId) : undefined,
+          actorId: actor?.id,
           action: (filters.action || undefined) as AuditAction | undefined,
           targetType: (filters.targetType || undefined) as AuditTargetType | undefined,
           targetId: targetId ? Number(targetId) : undefined,
@@ -45,17 +42,14 @@ export function AuditPage() {
     setFilters((f) => ({ ...f, [key]: value, ...(key === 'targetType' && !value ? { targetId: '' } : {}) }))
     setPage(0)
   }
-  const filtered = Object.values(filters).some(Boolean)
+  const filtered = Boolean(actor) || Object.values(filters).some(Boolean)
 
   return (
     <>
       <PageHeader title="Auditoria" subtitle="Quem fez o quê e quando (só administrador)" />
       <Card>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <SelectField id={fid('actorId')} label="Quem fez" value={filters.actorId} onChange={(e) => set('actorId', e.target.value)}>
-            <option value="">Qualquer usuário</option>
-            {users.data?.items.map((u) => <option key={u.id} value={u.id}>{u.login}</option>)}
-          </SelectField>
+          <UserPicker label="Quem fez" value={actor} onChange={(u) => { setActor(u); setPage(0) }} />
           <SelectField id={fid('action')} label="Ação" value={filters.action} onChange={(e) => set('action', e.target.value)}>
             <option value="">Qualquer ação</option>
             {actions.map((a) => <option key={a} value={a}>{actionLabel(a)}</option>)}
@@ -68,7 +62,7 @@ export function AuditPage() {
           <TextField id={fid('from')} label="De" type="date" value={filters.from} onChange={(e) => set('from', e.target.value)} />
           <TextField id={fid('to')} label="Até" type="date" value={filters.to} onChange={(e) => set('to', e.target.value)} />
         </div>
-        {filtered && <div><Button small onClick={() => { setFilters(none); setPage(0) }}>Limpar filtros</Button></div>}
+        {filtered && <div><Button small onClick={() => { setFilters(none); setActor(null); setPage(0) }}>Limpar filtros</Button></div>}
         {error && <Banner kind="error">{error}</Banner>}
         {!error && trail.isPending && <Spinner />}
         {trail.isError && <Banner kind="error">{errorMessage(trail.error)}</Banner>}

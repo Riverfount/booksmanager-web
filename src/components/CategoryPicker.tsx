@@ -7,7 +7,7 @@ import { FieldError } from './ui'
 export type CategoryChoice = { id: number; name: string }
 
 /** Category by search (not a dropdown, which the API page limit would cap): type, see up to 5 results and pick one. */
-export function CategoryPicker({ value, onChange, error, id, legend, searchLabel = 'Buscar categoria pelo nome', required, compact }: {
+export function CategoryPicker({ value, onChange, error, id, legend, searchLabel = 'Buscar categoria pelo nome', required, compact, reader }: {
   value: CategoryChoice | null
   onChange: (v: CategoryChoice | null) => void
   error?: string
@@ -18,18 +18,22 @@ export function CategoryPicker({ value, onChange, error, id, legend, searchLabel
   required?: boolean
   /** For filters: shows no placeholder and lists results only while the user is typing. */
   compact?: boolean
+  /** For the reader area: searches `/me/categories` (active ones only) and skips the staff-only lookup by id. */
+  reader?: boolean
 }) {
   const [query, setQuery] = useState('')
   const q = useDebounced(query.trim())
   const results = useQuery({
-    queryKey: ['categories', 'picker', q],
-    queryFn: () => call(api.GET('/api/v1/categories', { params: { query: { name: q || undefined, size: 5, active: true } } })),
+    queryKey: ['categories', 'picker', reader ? 'me' : 'staff', q],
+    queryFn: () => reader
+      ? call(api.GET('/api/v1/me/categories', { params: { query: { name: q || undefined, size: 5 } } }))
+      : call(api.GET('/api/v1/categories', { params: { query: { name: q || undefined, size: 5, active: true } } })),
   })
   // The list shows only active categories; the real flag of the chosen one tells whether it was deactivated later.
   const chosen = useQuery({
     queryKey: ['categories', value?.id],
     queryFn: () => call(api.GET('/api/v1/categories/{id}', { params: { path: { id: value!.id } } })),
-    enabled: !!value,
+    enabled: !!value && !reader,
   })
   const items = results.data?.items ?? []
   const inactive = !!value && chosen.data?.active === false

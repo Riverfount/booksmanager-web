@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api, call, errorMessage } from '../../api/client'
 import type { ReaderBook } from '../../api/types'
+import { CategoryPicker, type CategoryChoice } from '../../components/CategoryPicker'
 import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, PageHeader, Pagination, SearchInput, Spinner } from '../../components/ui'
 import { reservedMessage } from '../../lib/reservations'
 import { useDebounced } from '../../lib/useDebounced'
@@ -12,7 +13,7 @@ export function CatalogPage() {
   const [title, setTitle] = useState('')
   const [author, setAuthor] = useState('')
   const [isbn, setIsbn] = useState('')
-  const [categoryId, setCategoryId] = useState('')
+  const [category, setCategory] = useState<CategoryChoice | null>(null)
   const [page, setPage] = useState(0)
   const [reserving, setReserving] = useState<ReaderBook | null>(null)
   const [done, setDone] = useState('')
@@ -21,15 +22,10 @@ export function CatalogPage() {
   const a = useDebounced(author.trim())
   const i = useDebounced(isbn.trim())
 
-  const categories = useQuery({
-    queryKey: ['me', 'categories'],
-    queryFn: () => call(api.GET('/api/v1/me/categories', { params: { query: { size: 100 } } })),
-    staleTime: 5 * 60_000,
-  })
   const books = useQuery({
-    queryKey: ['me', 'books', t, a, i, categoryId, page],
+    queryKey: ['me', 'books', t, a, i, category?.id, page],
     queryFn: () => call(api.GET('/api/v1/me/books', {
-      params: { query: { title: t || undefined, author: a || undefined, isbn: i || undefined, categoryId: categoryId ? Number(categoryId) : undefined, page } },
+      params: { query: { title: t || undefined, author: a || undefined, isbn: i || undefined, categoryId: category?.id, page } },
     })),
   })
   const filter = (set: (v: string) => void) => (e: { target: { value: string } }) => { set(e.target.value); setPage(0) }
@@ -39,15 +35,12 @@ export function CatalogPage() {
     <>
       <PageHeader title="Catálogo" subtitle="Procure um livro da biblioteca" />
       <Card>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <SearchInput label="Buscar por título" placeholder="Título" value={title} onChange={filter(setTitle)} />
           <SearchInput label="Buscar por autor" placeholder="Autor" value={author} onChange={filter(setAuthor)} />
           <SearchInput label="Buscar por ISBN" placeholder="ISBN" value={isbn} onChange={filter(setIsbn)} />
-          <select aria-label="Filtrar por categoria" value={categoryId} onChange={filter(setCategoryId)} className="box-border h-11 w-full rounded-md border border-line bg-bg0-h px-3 text-[15px] text-fg">
-            <option value="">Todas as categorias</option>
-            {categories.data?.items.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
         </div>
+        <CategoryPicker id="category-filter" reader compact value={category} onChange={(c) => { setCategory(c); setPage(0) }} searchLabel="Filtrar por categoria" />
         {done && <Banner kind="success">{done}</Banner>}
         {books.isPending && <Spinner />}
         {books.isError && <Banner kind="error">{errorMessage(books.error)}</Banner>}

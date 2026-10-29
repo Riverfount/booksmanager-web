@@ -167,12 +167,28 @@ describe('catálogo', () => {
     const calls = mockApi(routes)
     renderPage(<CatalogPage />)
     await userEvent.type(await screen.findByLabelText('Buscar por autor'), 'machado')
-    await userEvent.selectOptions(await screen.findByLabelText('Filtrar por categoria'), 'Romance')
+    await userEvent.type(await screen.findByLabelText('Filtrar por categoria'), 'rom')
+    await userEvent.click(await screen.findByRole('button', { name: 'Romance' }))
     await waitFor(() => {
       const q = last(calls, 'GET /api/v1/me/books')
       expect(q.get('author')).toBe('machado')
       expect(q.get('categoryId')).toBe('3')
     })
+    await userEvent.click(screen.getByRole('button', { name: 'Remover Romance' }))
+    await waitFor(() => expect(last(calls, 'GET /api/v1/me/books').has('categoryId')).toBe(false))
+  })
+
+  it('busca a categoria só nas rotas do leitor, em vez de carregar até 100 de uma vez', async () => {
+    const calls = mockApi(routes)
+    renderPage(<CatalogPage />)
+    await userEvent.type(await screen.findByLabelText('Filtrar por categoria'), 'rom')
+    await userEvent.click(await screen.findByRole('button', { name: 'Romance' }))
+    await waitFor(() => expect(calls.some((c) => c.key === 'GET /api/v1/me/books' && c.url.searchParams.get('categoryId') === '3')).toBe(true))
+    const asked = calls.filter((c) => c.key === 'GET /api/v1/me/categories').map((c) => c.url.searchParams)
+    expect(asked.some((q) => q.get('name') === 'rom' && q.get('size') === '5')).toBe(true)
+    expect(asked.every((q) => q.get('size') !== '100')).toBe(true)
+    // the staff routes answer 403 to a reader (the by-id lookup of the inactive mark must not run)
+    expect(calls.some((c) => c.url.pathname.startsWith('/api/v1/categories'))).toBe(false)
   })
 
   it('reserva depois de confirmar e mostra o lugar na fila', async () => {
