@@ -4,11 +4,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import type { z } from 'zod'
-import { api, call, errorMessage } from '../api/client'
+import { api, call } from '../api/client'
 import { PasswordRules } from '../components/PasswordRules'
 import { PublicShell } from '../components/PublicShell'
 import { Banner, Button, ErrorSummary, TextField } from '../components/ui'
-import { errorItems, errorTitle, fid } from '../lib/form'
+import { applyServerErrors, errorItems, errorTitle, fid, serverErrors } from '../lib/form'
 import { newPasswordSchema } from '../lib/schemas'
 import { useLinkToken } from '../lib/useLinkToken'
 import { InvalidLink } from './AcceptInvitationPage'
@@ -19,14 +19,16 @@ type Values = z.infer<typeof newPasswordSchema>
 export function ResetPasswordPage() {
   const token = useLinkToken()
   const [done, setDone] = useState(false)
-  const { register, handleSubmit, watch, formState: { errors, isSubmitted } } = useForm<Values>({
+  const { register, handleSubmit, setError, watch, formState: { errors, isSubmitted } } = useForm<Values>({
     resolver: zodResolver(newPasswordSchema),
     defaultValues: { password: '', confirmPassword: '' },
   })
   const reset = useMutation({
     mutationFn: (v: Values) => call(api.POST('/api/v1/auth/reset-password', { body: { token, password: v.password } })),
+    onError: (error) => applyServerErrors(serverErrors(error, { password: 'password' }), setError),
     onSuccess: () => setDone(true),
   })
+  const serverBanner = reset.isError ? serverErrors(reset.error, { password: 'password' }).banner : undefined
   const items = errorItems(errors, { password: 'Senha', confirmPassword: 'Confirmação da senha' })
 
   if (!token) return <InvalidLink />
@@ -41,7 +43,7 @@ export function ResetPasswordPage() {
   return (
     <PublicShell heading="Escolher uma nova senha">
       <form noValidate onSubmit={handleSubmit((v) => reset.mutate(v))} className="flex flex-col gap-4">
-        {reset.isError && <Banner kind="error">{errorMessage(reset.error)}</Banner>}
+        {serverBanner && <Banner kind="error">{serverBanner}</Banner>}
         <ErrorSummary title={errorTitle(items.length, 'alterar a senha')} items={items} />
         <TextField id={fid('password')} label="Nova senha" required type="password" autoComplete="new-password" maxLength={25} aria-describedby="rules-senha" error={errors.password?.message} {...register('password')} />
         <PasswordRules id="rules-senha" password={watch('password')} submitted={isSubmitted} />

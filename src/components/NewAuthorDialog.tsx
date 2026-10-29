@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, call, errorMessage, existingAuthorId } from '../api/client'
+import { applyServerErrors, serverErrors } from '../lib/form'
 import { authorSchema } from '../lib/schemas'
 import { Banner, Button, Dialog, TextField } from './ui'
 
@@ -14,9 +15,10 @@ type Values = { name: string }
  */
 export function NewAuthorDialog({ initialName, onCreated, onClose }: { initialName: string; onCreated: (author: { id: number; name: string }) => void; onClose: () => void }) {
   const qc = useQueryClient()
-  const { register, handleSubmit, getValues, formState: { errors } } = useForm<Values>({ resolver: zodResolver(authorSchema), defaultValues: { name: initialName } })
+  const { register, handleSubmit, getValues, setError, formState: { errors } } = useForm<Values>({ resolver: zodResolver(authorSchema), defaultValues: { name: initialName } })
   const save = useMutation({
     mutationFn: (v: { name: string; allowDuplicate: boolean }) => call(api.POST('/api/v1/authors', { body: v })),
+    onError: (error) => applyServerErrors(serverErrors(error, { name: 'name' }), setError),
     onSuccess: (a) => {
       void qc.invalidateQueries({ queryKey: ['authors'] })
       onCreated({ id: a.id, name: a.name })
@@ -25,6 +27,7 @@ export function NewAuthorDialog({ initialName, onCreated, onClose }: { initialNa
   // The homonym 422 is not a failure to report: it asks the operator to confirm.
   const existingId = existingAuthorId(save.error)
   const homonym = existingId !== undefined
+  const serverBanner = save.isError && !homonym ? serverErrors(save.error, { name: 'name' }).banner : undefined
 
   return createPortal(
     <Dialog title="Novo autor" onClose={onClose}>
@@ -36,7 +39,7 @@ export function NewAuthorDialog({ initialName, onCreated, onClose }: { initialNa
         }}
         className="flex flex-col gap-4"
       >
-        {save.isError && !homonym && <Banner kind="error">{errorMessage(save.error)}</Banner>}
+        {serverBanner && <Banner kind="error">{serverBanner}</Banner>}
         <TextField label="Nome" required autoFocus autoComplete="off" maxLength={150} error={errors.name?.message} {...register('name')} />
         {homonym ? (
           <>
