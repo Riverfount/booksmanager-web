@@ -17,3 +17,17 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  # Issue #53: the image of the front-end must keep building and keep serving what the production setup depends on
+  # (the single-page fallback, the cache of the hashed files, a real 404 for the API and for missing assets, no host
+  # baked into the bundle, no root). It is only built and tried here, never published.
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the smoke test script
+        run: shellcheck -x scripts/smoke-image.sh
+      - name: Build the image
+        run: docker build --tag booksmanager-web:ci .
+      - name: Smoke test the image
+        run: scripts/smoke-image.sh booksmanager-web:ci
