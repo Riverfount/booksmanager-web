@@ -1,4 +1,5 @@
 import { useId, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type Ref } from 'react'
+import { describedBy } from '../lib/aria'
 
 const cx = (...parts: (string | false | undefined)[]) => parts.filter(Boolean).join(' ')
 
@@ -66,17 +67,18 @@ type TextFieldProps = InputHTMLAttributes<HTMLInputElement> & {
   mono?: boolean
   ref?: Ref<HTMLInputElement>
 }
-export function TextField({ label, error, hint, mono, required, id, className, ...rest }: TextFieldProps) {
+// The caller's `aria-describedby` (the password rules, for example) is merged with the hint and the error, never lets them go:
+// a spread of `rest` after the generated attribute would replace it and the error would not be read with the field.
+export function TextField({ label, error, hint, mono, required, id, className, 'aria-describedby': extraDescribedBy, ...rest }: TextFieldProps) {
   const auto = useId()
   const fid = id ?? auto
-  const describedBy = [hint && `${fid}-hint`, error && `${fid}-err`].filter(Boolean).join(' ') || undefined
   return (
     <FieldShell id={fid} label={label} required={required} hint={hint} error={error}>
       <input
         id={fid}
         aria-required={required || undefined}
         aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy}
+        aria-describedby={describedBy(extraDescribedBy, hint && `${fid}-hint`, error && `${fid}-err`)}
         className={cx(inputBase, error ? 'border-red' : 'border-line', mono && 'font-mono', className)}
         {...rest}
       />
@@ -85,7 +87,7 @@ export function TextField({ label, error, hint, mono, required, id, className, .
 }
 
 type SelectFieldProps = SelectHTMLAttributes<HTMLSelectElement> & { label: string; error?: string; hint?: string; ref?: Ref<HTMLSelectElement> }
-export function SelectField({ label, error, hint, required, id, children, ...rest }: SelectFieldProps) {
+export function SelectField({ label, error, hint, required, id, children, 'aria-describedby': extraDescribedBy, ...rest }: SelectFieldProps) {
   const auto = useId()
   const fid = id ?? auto
   return (
@@ -94,7 +96,7 @@ export function SelectField({ label, error, hint, required, id, children, ...res
         id={fid}
         aria-required={required || undefined}
         aria-invalid={error ? true : undefined}
-        aria-describedby={error ? `${fid}-err` : undefined}
+        aria-describedby={describedBy(extraDescribedBy, hint && `${fid}-hint`, error && `${fid}-err`)}
         className={cx(inputBase, error ? 'border-red' : 'border-line')}
         {...rest}
       >
