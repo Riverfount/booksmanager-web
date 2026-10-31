@@ -6,14 +6,15 @@ import { login as doLogin, logout as doLogout, refreshSession } from './session'
 
 type AuthState =
   | { status: 'loading'; user: null }
-  | { status: 'anonymous'; user: null }
+  // `notice` is what the login screen says to someone who just left the session on purpose (e.g. after changing the password)
+  | { status: 'anonymous'; user: null; notice?: string }
   | { status: 'authenticated'; user: CurrentUser }
 
 type AuthValue = {
   state: AuthState
   isAdmin: boolean
   signIn: (login: string, password: string) => Promise<void>
-  signOut: () => Promise<void>
+  signOut: (notice?: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthValue | null>(null)
@@ -47,10 +48,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ status: 'authenticated', user })
   }, [])
 
-  const signOut = useCallback(async () => {
+  const signOut = useCallback(async (notice?: string) => {
     await doLogout()
     queryClient.clear()
-    setState({ status: 'anonymous', user: null })
+    setState({ status: 'anonymous', user: null, notice })
   }, [queryClient])
 
   const value = useMemo<AuthValue>(

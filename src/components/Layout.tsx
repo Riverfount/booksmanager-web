@@ -2,6 +2,7 @@ import { Logo } from './Logo'
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { useAuth } from '../auth/AuthContext'
+import { ChangeOwnPasswordDialog } from './ChangeOwnPasswordDialog'
 import { Icon, type IconName } from './Icon'
 
 type Item = { to: string; label: string; icon: IconName; admin?: boolean }
@@ -23,6 +24,7 @@ const items: Item[] = [
 export function Layout() {
   const { state, isAdmin, signOut } = useAuth()
   const [open, setOpen] = useState(false)
+  const [changingPassword, setChangingPassword] = useState(false)
   const location = useLocation()
   const [lastPath, setLastPath] = useState(location.pathname)
   // Fecha o menu do celular ao trocar de tela.
@@ -82,6 +84,13 @@ export function Layout() {
         </div>
         <button
           type="button"
+          onClick={() => setChangingPassword(true)}
+          className="flex min-h-11 items-center justify-center gap-2 rounded-md border border-line bg-transparent text-sm text-fg2"
+        >
+          <Icon name="key" size={18} />Alterar senha
+        </button>
+        <button
+          type="button"
           onClick={() => void signOut()}
           className="flex min-h-11 items-center justify-center gap-2 rounded-md border border-line bg-transparent text-sm text-fg2"
         >
@@ -92,6 +101,8 @@ export function Layout() {
       <main className="box-border flex min-w-0 flex-[999_1_560px] flex-col gap-6 px-4 py-5 min-[901px]:px-10 min-[901px]:py-8">
         <Outlet />
       </main>
+
+      {changingPassword && <ChangeOwnPasswordDialog onClose={() => setChangingPassword(false)} />}
     </div>
   )
 }
