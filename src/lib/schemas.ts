@@ -207,6 +207,7 @@ export const configSchema = z
     renewalLimit: z.string(),
     reservationPickupDays: z.string(),
     dueSoonNoticeDays: z.string(),
+    assetCodePrefix: z.string(),
   })
   .superRefine((v, ctx) => {
     const num = (k: keyof typeof v) => Number(String(v[k]).replace(',', '.'))
@@ -230,4 +231,6 @@ export const configSchema = z
     whole('renewalLimit', 0, 'Limite de renovações')
     whole('reservationPickupDays', 1, 'Prazo de retirada de reservas')
     whole('dueSoonNoticeDays', 1, 'Aviso de vencimento')
+    if (!/^[A-Za-z]{3,4}$/.test(v.assetCodePrefix))
+      ctx.addIssue({ code: 'custom', path: ['assetCodePrefix'], message: 'Prefixo do patrimônio: use de 3 a 4 letras, de A a Z.' })
   })

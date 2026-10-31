@@ -73,7 +73,7 @@ describe('usuários: erros de campo do servidor', () => {
 describe('configuração: erros de campo do servidor', () => {
   const config = {
     penaltyPolicy: 'BOTH', dailyFineAmount: 2.5, fineCap: 50, suspensionDaysPerDay: 1, suspensionCapDays: 30,
-    loanPeriodDays: 14, loanLimit: 3, renewalLimit: 2, reservationPickupDays: 3, dueSoonNoticeDays: 2,
+    loanPeriodDays: 14, loanLimit: 3, renewalLimit: 2, reservationPickupDays: 3, dueSoonNoticeDays: 2, assetCodePrefix: 'PAT',
   }
 
   it('marca cada campo que a API recusou, sem banner', async () => {

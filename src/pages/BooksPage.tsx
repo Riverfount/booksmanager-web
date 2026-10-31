@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -316,14 +316,28 @@ function CopiesPanel({ book, onChanged, onClose }: { book: Book; onChanged: () =
   // Inactivating the last copy of the last page leaves it empty: step back to the previous one.
   if (copies.data && copies.data.items.length === 0 && page > 0) setPage(page - 1)
   const form = useForm<z.infer<typeof copySchema>>({ resolver: zodResolver(copySchema), defaultValues: { assetCode: '' } })
-  const { register, handleSubmit, reset, formState: { errors } } = form
+  const { register, handleSubmit, reset, setValue, getValues, getFieldState, formState: { errors } } = form
+  // The next free code of the whole collection. It is only a suggestion: if it cannot be fetched the field stays empty and
+  // nothing is shown; gcTime 0 so a reopened panel never starts from an old suggestion.
+  const next = useQuery({
+    queryKey: ['next-asset-code'],
+    queryFn: () => call(api.GET('/api/v1/copies/next-asset-code')),
+    gcTime: 0, retry: false, refetchOnWindowFocus: false,
+  })
+  const suggested = next.data?.assetCode
+  // Prefills while the field is untouched or empty: whatever the operator typed is never overwritten.
+  useEffect(() => {
+    if (suggested && (!getFieldState('assetCode').isDirty || !getValues('assetCode'))) setValue('assetCode', suggested)
+  }, [suggested, next.dataUpdatedAt, getFieldState, getValues, setValue])
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ['copies', book.id] })
     onChanged()
   }
   const add = useMutation({
     mutationFn: (v: { assetCode: string }) => call(api.POST('/api/v1/copies', { body: { bookId: book.id, assetCode: v.assetCode } })),
-    onSuccess: () => { setAdded(true); reset({ assetCode: '' }); refresh() },
+    onSuccess: () => { setAdded(true); reset({ assetCode: '' }); refresh(); void qc.invalidateQueries({ queryKey: ['next-asset-code'] }) },
+    // two operators can get the same suggestion: if the refused code is the suggested one, a new one replaces it
+    onError: (_error, v) => { if (v.assetCode === suggested) void qc.invalidateQueries({ queryKey: ['next-asset-code'] }) },
   })
   const changeStatus = useMutation({
     mutationFn: (v: { id: number; status: 'AVAILABLE' | 'DAMAGED' | 'LOST' }) => call(api.PATCH('/api/v1/copies/{id}', { params: { path: { id: v.id } }, body: { status: v.status } })),
@@ -377,7 +391,7 @@ function CopiesPanel({ book, onChanged, onClose }: { book: Book; onChanged: () =
       {copies.data && <Pagination page={copies.data.page} totalPages={copies.data.totalPages} totalItems={copies.data.totalItems} onPage={setPage} />}
       <form noValidate onSubmit={handleSubmit((v) => { setAdded(false); add.mutate(v) })} className="flex flex-wrap items-start gap-3 pt-1">
         <div className="min-w-56 flex-1">
-          <TextField id={fid('assetCode')} label="Novo exemplar" required mono maxLength={50} autoComplete="off" placeholder="Código de patrimônio, ex.: PAT-0006" error={errors.assetCode?.message} {...register('assetCode')} />
+          <TextField id={fid('assetCode')} label="Novo exemplar" required mono maxLength={50} autoComplete="off" placeholder="Código de patrimônio, ex.: PAT-00006" error={errors.assetCode?.message} {...register('assetCode')} />
         </div>
         <Button type="submit" variant="primary" disabled={add.isPending} className="mt-[26px]">Adicionar exemplar</Button>
       </form>

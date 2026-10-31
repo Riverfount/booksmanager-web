@@ -25,6 +25,8 @@ export function maskPhone(text: string): string {
 
 export const maskIsbn = (text: string) => text.replace(/[^0-9Xx\- ]/g, '').toUpperCase().slice(0, 17)
 export const maskYear = (text: string) => text.replace(/\D/g, '').slice(0, 4)
+/** Prefixo do código de patrimônio: maiúsculas e no máximo 4 caracteres; o que não é letra fica à vista, para o schema apontar. */
+export const maskAssetCodePrefix = (text: string) => text.toUpperCase().slice(0, 4)
 export const onlyDigits = (text: string) => text.replace(/\D/g, '')
 
 /** Igual à normalização do backend: sem pontuação nem espaços, em maiúsculas. */
