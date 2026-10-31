@@ -109,4 +109,16 @@ describe('alterar a própria senha (equipe)', () => {
     expect(calls.some((c) => c.key === URL_KEY)).toBe(false)
     expect(signOut).not.toHaveBeenCalled()
   })
+
+  it('uma nova senha fora das regras é anunciada junto com as regras da senha (leitor de tela)', async () => {
+    mockApi({})
+    renderDialog()
+
+    await fill('Antiga#123', 'fraca')
+    await submit()
+
+    const field = await screen.findByLabelText(/^Nova senha/)
+    await waitFor(() => expect(field).toHaveAccessibleDescription(/A senha não atende às regras abaixo\./))
+    expect(field).toHaveAccessibleDescription(/De 8 a 25 caracteres\(não atendida\)/)
+  })
 })
