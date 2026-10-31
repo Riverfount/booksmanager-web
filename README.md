@@ -80,7 +80,30 @@ src/
 
 ## Produção
 
-`npm run build` gera arquivos estáticos em `dist/`. Sirva-os com fallback para `index.html` (SPA) e coloque a API atrás do mesmo domínio em `/api` (proxy reverso). Se front e API ficarem em origens diferentes, defina `VITE_API_URL` no build e `APP_CORS_ALLOWED_ORIGINS` no backend; note que o cookie `SameSite=Strict` do refresh token só funciona entre origens do mesmo site.
+`npm run build` gera arquivos estáticos em `dist/`, e o `Dockerfile` os empacota numa imagem que só serve esses arquivos (Nginx sem privilégios, na porta **8080**, usuário `nginx`):
+
+```bash
+docker build -t booksmanager-web .
+docker run --rm -p 8080:8080 booksmanager-web
+scripts/smoke-image.sh booksmanager-web   # confere o que a produção usa (precisa de docker e curl)
+```
+
+**A imagem espera um proxy reverso na frente**, que termina o TLS e manda `/api/` para a API **na mesma origem**: o front chama `/api/...` com URL relativa (o build não define `VITE_API_URL`, então nenhum endereço fica embutido), e o cookie do refresh token é `SameSite=Strict`, que só vale entre origens do mesmo site. O proxy de produção é o Nginx do repositório do back ([BooksManager](https://github.com/Riverfount/BooksManager), `docs/implantacao.md`).
+
+O Nginx da imagem faz só o que é dele:
+
+- **fallback de SPA:** recarregar `/livros` ou abrir `/convite?token=…` devolve o app;
+- **`/assets/*`** (nomes com hash) com cache de um ano (`immutable`); arquivo que não existe ali é 404 de verdade, e não o `index.html`, para um bundle velho falhar de forma visível;
+- **`/index.html`** com `no-cache`, para uma nova versão ser vista na hora;
+- **`/api/`** devolve 404 (se uma requisição para lá chegar, é erro de roteamento do proxy, e não deve ser respondida com a página do app);
+- **`/healthz`** responde `ok` (usado pelo `HEALTHCHECK` e para orquestração);
+- não repete os cabeçalhos de segurança (HSTS, `nosniff`, `X-Frame-Options`, `Referrer-Policy`), que o proxy da frente já define.
+
+**Publicação:** ao enviar uma tag de versão (`v1.0.0`), o workflow `Publish image` roda os mesmos checks do CI, confere que a tag aponta para um commit da `main`, constrói a imagem, roda o teste de fumaça e publica em `ghcr.io/riverfount/booksmanager-web` com **duas tags**: a versão (`1.0.0`) e o hash curto do commit (`sha-1a2b3c4`). Não há `latest`: quem implanta nomeia uma versão, e o que roda é sempre conhecido. O CI constrói e testa a imagem em todo pull request, sem publicar.
+
+**Versões que andam juntas:** front e back são publicados separadamente. A ponte entre eles é o contrato OpenAPI do back; as mudanças de contrato estão na tabela de `docs/projeto.md` do back, e `npm run api:types` mostra no `tsc` o que quebrou.
+
+Sem proxy na frente, se front e API ficarem em origens diferentes, defina `VITE_API_URL` no build e `APP_CORS_ALLOWED_ORIGINS` no back; o cookie `SameSite=Strict` do refresh token só funciona entre origens do mesmo site, então esse caminho não serve para a produção.
 
 ## Limitações conhecidas
 
