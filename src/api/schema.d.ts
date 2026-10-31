@@ -1396,6 +1396,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/copies/next-asset-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sugerir o próximo código de patrimônio
+         * @description Devolve o próximo código de patrimônio livre no formato da biblioteca: o prefixo da configuração (padrão PAT), um hífen e o maior número já usado com esse prefixo mais um, com pelo menos 5 dígitos (PAT-00006). Contam os exemplares de todo o acervo, inclusive os inativos; códigos fora do formato ou de outro prefixo são ignorados, e as lacunas não são preenchidas. É só uma sugestão: nada é reservado, e o exemplar pode ser cadastrado com qualquer código válido.
+         */
+        get: operations["nextAssetCode"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/books/lookup": {
         parameters: {
             query?: never;
@@ -2587,6 +2607,11 @@ export interface components {
              * @example 2
              */
             dueSoonNoticeDays?: number;
+            /**
+             * @description Prefixo dos códigos de patrimônio sugeridos (opcional): de 3 a 4 letras, de A a Z; minúsculas são guardadas em maiúsculas
+             * @example PAT
+             */
+            assetCodePrefix?: string;
         };
         LibraryConfigurationResponse: {
             /**
@@ -2647,6 +2672,11 @@ export interface components {
              * @example 2
              */
             dueSoonNoticeDays: number;
+            /**
+             * @description Prefixo dos códigos de patrimônio sugeridos (PAT-00001): de 3 a 4 letras maiúsculas
+             * @example PAT
+             */
+            assetCodePrefix: string;
         };
         UpdateCopyRequest: {
             /**
@@ -3598,6 +3628,13 @@ export interface components {
              * @example 3
              */
             totalPages: number;
+        };
+        NextAssetCodeResponse: {
+            /**
+             * @description Código de patrimônio sugerido: o prefixo da biblioteca, um hífen e o próximo número, com pelo menos 5 dígitos
+             * @example PAT-00006
+             */
+            assetCode: string;
         };
         PageResponseCategoryResponse: {
             /** @description Itens da página */
@@ -9001,6 +9038,44 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    nextAssetCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Código sugerido */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["NextAssetCodeResponse"];
                 };
             };
             /** @description Não autenticado: token ausente, expirado ou inválido */

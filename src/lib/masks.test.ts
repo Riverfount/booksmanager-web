@@ -1,4 +1,4 @@
-import { maskDocument, maskPhone, maskIsbn, normalizeDocument } from './masks'
+import { maskAssetCodePrefix, maskDocument, maskPhone, maskIsbn, normalizeDocument } from './masks'
 
 describe('máscaras', () => {
   it('formata CPF conforme digita', () => {
@@ -21,5 +21,12 @@ describe('máscaras', () => {
     expect(maskIsbn('978-85-333x!')).toBe('978-85-333X')
     expect(normalizeDocument('123.456.789-01')).toBe('12345678901')
     expect(normalizeDocument('mg 12.345')).toBe('MG12345')
+  })
+  it('prefixo do patrimônio: maiúsculas, no máximo 4 caracteres, sem esconder o que está errado', () => {
+    expect(maskAssetCodePrefix('bib')).toBe('BIB')
+    expect(maskAssetCodePrefix('abcdef')).toBe('ABCD')
+    // digits and symbols stay visible, so the schema can point at them
+    expect(maskAssetCodePrefix('p4t')).toBe('P4T')
+    expect(maskAssetCodePrefix('')).toBe('')
   })
 })

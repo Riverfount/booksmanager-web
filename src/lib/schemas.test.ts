@@ -90,7 +90,7 @@ describe('usuário e senha', () => {
 })
 
 describe('configuração', () => {
-  const ok = { penaltyPolicy: 'BOTH' as const, dailyFineAmount: '1.00', fineCap: '10.00', suspensionDaysPerDay: '1', suspensionCapDays: '365', loanPeriodDays: '14', loanLimit: '3', renewalLimit: '2', reservationPickupDays: '3', dueSoonNoticeDays: '2' }
+  const ok = { penaltyPolicy: 'BOTH' as const, dailyFineAmount: '1.00', fineCap: '10.00', suspensionDaysPerDay: '1', suspensionCapDays: '365', loanPeriodDays: '14', loanLimit: '3', renewalLimit: '2', reservationPickupDays: '3', dueSoonNoticeDays: '2', assetCodePrefix: 'PAT' }
   it('aceita os valores iniciais da política', () => expect(configSchema.safeParse(ok).success).toBe(true))
   it('teto não pode ficar abaixo da multa de um dia', () => {
     expect(configSchema.safeParse({ ...ok, dailyFineAmount: '5', fineCap: '2' }).success).toBe(false)
@@ -104,6 +104,15 @@ describe('configuração', () => {
     expect(configSchema.safeParse({ ...ok, dueSoonNoticeDays: '0' }).success).toBe(false)
     expect(configSchema.safeParse({ ...ok, dueSoonNoticeDays: '' }).success).toBe(false)
     expect(configSchema.safeParse({ ...ok, dueSoonNoticeDays: '1' }).success).toBe(true)
+  })
+  it('prefixo do patrimônio: de 3 a 4 letras', () => {
+    for (const prefix of ['PAT', 'BIB', 'ABCD', 'bib']) expect(configSchema.safeParse({ ...ok, assetCodePrefix: prefix }).success).toBe(true)
+    for (const prefix of ['', 'PA', 'PATRI', 'PA1', 'PA-', 'PÁT', ' PAT', 'PA T']) expect(configSchema.safeParse({ ...ok, assetCodePrefix: prefix }).success, `"${prefix}"`).toBe(false)
+  })
+  it('prefixo do patrimônio inválido aponta o campo, com mensagem em português', () => {
+    const r = configSchema.safeParse({ ...ok, assetCodePrefix: 'PA' })
+    expect(r.success).toBe(false)
+    if (!r.success) expect(r.error.issues[0]).toMatchObject({ path: ['assetCodePrefix'], message: 'Prefixo do patrimônio: use de 3 a 4 letras, de A a Z.' })
   })
 })
 

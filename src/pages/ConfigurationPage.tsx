@@ -7,6 +7,7 @@ import { api, call, errorMessage } from '../api/client'
 import type { LibraryConfiguration } from '../api/types'
 import { Banner, Button, Card, ErrorSummary, PageHeader, RequiredNote, SelectField, Spinner, TextField } from '../components/ui'
 import { applyServerErrors, errorItems, errorTitle, fid, serverErrors } from '../lib/form'
+import { maskAssetCodePrefix } from '../lib/masks'
 import { configSchema } from '../lib/schemas'
 
 type Values = z.infer<typeof configSchema>
@@ -22,11 +23,12 @@ const toValues = (c: LibraryConfiguration): Values => ({
   renewalLimit: String(c.renewalLimit),
   reservationPickupDays: String(c.reservationPickupDays),
   dueSoonNoticeDays: String(c.dueSoonNoticeDays),
+  assetCodePrefix: c.assetCodePrefix,
 })
 /** Field paths of the API → form fields (same names; the policy has no error slot, so its errors stay in the banner). */
 const serverFields = {
   dailyFineAmount: 'dailyFineAmount', fineCap: 'fineCap', suspensionDaysPerDay: 'suspensionDaysPerDay', suspensionCapDays: 'suspensionCapDays',
-  loanPeriodDays: 'loanPeriodDays', loanLimit: 'loanLimit', renewalLimit: 'renewalLimit', reservationPickupDays: 'reservationPickupDays', dueSoonNoticeDays: 'dueSoonNoticeDays',
+  loanPeriodDays: 'loanPeriodDays', loanLimit: 'loanLimit', renewalLimit: 'renewalLimit', reservationPickupDays: 'reservationPickupDays', dueSoonNoticeDays: 'dueSoonNoticeDays', assetCodePrefix: 'assetCodePrefix',
 }
 const dec = (s: string) => Number(s.replace(',', '.'))
 
@@ -34,9 +36,10 @@ export function ConfigurationPage() {
   const qc = useQueryClient()
   const [done, setDone] = useState(false)
   const config = useQuery({ queryKey: ['configuration'], queryFn: () => call(api.GET('/api/v1/library-configuration')) })
-  const { register, handleSubmit, reset, setError, watch, formState: { errors } } = useForm<Values>({ resolver: zodResolver(configSchema) })
+  const { register, handleSubmit, reset, setError, setValue, watch, formState: { errors } } = useForm<Values>({ resolver: zodResolver(configSchema) })
   useEffect(() => { if (config.data) reset(toValues(config.data)) }, [config.data, reset])
   const policy = watch('penaltyPolicy')
+  const prefix = watch('assetCodePrefix')
   const usesFine = policy === 'FINE' || policy === 'BOTH'
   const usesSuspension = policy === 'SUSPENSION' || policy === 'BOTH'
 
@@ -53,6 +56,7 @@ export function ConfigurationPage() {
         renewalLimit: Number(v.renewalLimit),
         reservationPickupDays: Number(v.reservationPickupDays),
         dueSoonNoticeDays: Number(v.dueSoonNoticeDays),
+        assetCodePrefix: v.assetCodePrefix.toUpperCase(),
       },
     })),
     onError: (error) => applyServerErrors(serverErrors(error, serverFields), setError),
@@ -61,13 +65,15 @@ export function ConfigurationPage() {
       reset(toValues(c))
       void qc.invalidateQueries({ queryKey: ['configuration'] })
       void qc.invalidateQueries({ queryKey: ['rules'] })
+      // the suggested asset code of the copies panel depends on the prefix
+      void qc.invalidateQueries({ queryKey: ['next-asset-code'] })
     },
   })
 
   const serverBanner = save.isError ? serverErrors(save.error, serverFields).banner : undefined
   const items = errorItems(errors, {
     dailyFineAmount: 'Multa por dia', fineCap: 'Teto da multa', suspensionDaysPerDay: 'Dias de suspensão por dia', suspensionCapDays: 'Teto da suspensão',
-    loanPeriodDays: 'Prazo de empréstimo', loanLimit: 'Limite de empréstimos', renewalLimit: 'Limite de renovações', reservationPickupDays: 'Prazo de retirada de reservas', dueSoonNoticeDays: 'Aviso de vencimento',
+    loanPeriodDays: 'Prazo de empréstimo', loanLimit: 'Limite de empréstimos', renewalLimit: 'Limite de renovações', reservationPickupDays: 'Prazo de retirada de reservas', dueSoonNoticeDays: 'Aviso de vencimento', assetCodePrefix: 'Prefixo do patrimônio',
   })
 
   return (
@@ -108,6 +114,18 @@ export function ConfigurationPage() {
                 <TextField id={fid('renewalLimit')} label="Renovações por empréstimo" required inputMode="numeric" error={errors.renewalLimit?.message} {...register('renewalLimit')} />
                 <TextField id={fid('reservationPickupDays')} label="Prazo de retirada de reservas (dias)" required inputMode="numeric" error={errors.reservationPickupDays?.message} {...register('reservationPickupDays')} />
                 <TextField id={fid('dueSoonNoticeDays')} label="Aviso de vencimento (dias antes)" required inputMode="numeric" hint="Antecedência do e-mail avisando que o empréstimo vai vencer." error={errors.dueSoonNoticeDays?.message} {...register('dueSoonNoticeDays')} />
+              </div>
+            </fieldset>
+
+            <fieldset className="m-0 flex flex-col gap-3 rounded-lg border border-line p-4">
+              <legend className="px-1.5 text-sm text-fg2">Acervo</legend>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <TextField
+                  id={fid('assetCodePrefix')} label="Prefixo do patrimônio" required mono maxLength={4} autoComplete="off"
+                  hint={`Os códigos sugeridos ficam como ${(prefix || 'PAT').toUpperCase()}-00001. Trocar o prefixo recomeça a numeração do novo prefixo; os códigos antigos continuam como estão.`}
+                  error={errors.assetCodePrefix?.message}
+                  {...register('assetCodePrefix', { onChange: (e) => setValue('assetCodePrefix', maskAssetCodePrefix(e.target.value)) })}
+                />
               </div>
             </fieldset>
 

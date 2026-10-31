@@ -467,3 +467,125 @@ describe('livros: painel de exemplares', () => {
     expect(await screen.findByText('Exemplares de “Memórias Póstumas”')).toBeInTheDocument()
   })
 })
+
+describe('livros: sugestão do código de patrimônio', () => {
+  const book = {
+    id: 4, isbn: ISBN, title: 'Dom Casmurro', publisher: 'Garnier', publicationYear: 1899, active: true, availableCopies: 2, totalCopies: 2, categoryId: 3,
+    category: { id: 3, name: 'Romance' }, authorIds: [7], authors: [{ id: 7, name: 'Machado de Assis' }],
+  }
+  const copy = (id: number, assetCode: string) => ({ id, bookId: 4, assetCode, status: 'AVAILABLE', active: true })
+  const copiesPage = (items: unknown[]) => ({ items, page: 0, size: 20, totalItems: items.length, totalPages: 1 })
+  const SUGGESTION = 'GET /api/v1/copies/next-asset-code'
+  const base = () => ({
+    'GET /api/v1/books': () => ({ json: pageOf([book]) }),
+    'GET /api/v1/copies': () => ({ json: copiesPage([copy(11, 'PAT-00005')]) }),
+  })
+  const openPanel = async () => userEvent.click(await screen.findByRole('button', { name: 'Ver exemplares de Dom Casmurro' }))
+  const field = () => screen.findByLabelText(/^Novo exemplar/)
+  const add = () => userEvent.click(screen.getByRole('button', { name: 'Adicionar exemplar' }))
+
+  it('pré-preenche o campo com o código sugerido, que continua editável', async () => {
+    mockApi({ ...base(), [SUGGESTION]: () => ({ json: { assetCode: 'PAT-00006' } }) })
+    renderBooks()
+    await openPanel()
+    const input = await field()
+    await waitFor(() => expect(input).toHaveValue('PAT-00006'))
+    await userEvent.clear(input)
+    await userEvent.type(input, 'PAT-00100')
+    expect(input).toHaveValue('PAT-00100')
+  })
+
+  it('o exemplo do campo segue o novo formato', async () => {
+    mockApi({ ...base(), [SUGGESTION]: () => ({ json: { assetCode: 'PAT-00006' } }) })
+    renderBooks()
+    await openPanel()
+    expect(await field()).toHaveAttribute('placeholder', expect.stringContaining('PAT-00006'))
+  })
+
+  it('não sobrescreve o que o operador já começou a digitar', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const calls = mockApi({ ...base(), [SUGGESTION]: () => ({ json: { assetCode: 'PAT-00006' } }) })
+    const fetchSpy = vi.mocked(globalThis.fetch)
+    const original = fetchSpy.getMockImplementation()!
+    fetchSpy.mockImplementation(async (input, init) => {
+      if ((input as Request).url.endsWith('/next-asset-code')) await gate
+      return original(input, init)
+    })
+    renderBooks()
+    await openPanel()
+    await userEvent.type(await field(), 'MEU-1')
+    release()
+    await waitFor(() => expect(calls.some((c) => c.key === SUGGESTION)).toBe(true))
+    await waitFor(() => expect(screen.getByLabelText(/^Novo exemplar/)).toHaveValue('MEU-1'))
+  })
+
+  it('depois de cadastrar, mostra a próxima sugestão', async () => {
+    let next = 'PAT-00006'
+    const calls = mockApi({
+      ...base(),
+      [SUGGESTION]: () => ({ json: { assetCode: next } }),
+      'POST /api/v1/copies': () => { next = 'PAT-00007'; return { status: 201, json: copy(12, 'PAT-00006') } },
+    })
+    renderBooks()
+    await openPanel()
+    await waitFor(async () => expect(await field()).toHaveValue('PAT-00006'))
+    await add()
+    expect(await screen.findByText('Exemplar adicionado.')).toBeInTheDocument()
+    expect(calls.find((c) => c.key === 'POST /api/v1/copies')?.body).toEqual({ bookId: 4, assetCode: 'PAT-00006' })
+    await waitFor(async () => expect(await field()).toHaveValue('PAT-00007'))
+  })
+
+  it('se a sugestão falha, o campo fica vazio e o cadastro à mão funciona, sem aviso de erro', async () => {
+    const calls = mockApi({
+      ...base(),
+      [SUGGESTION]: () => ({ status: 500, json: { detail: 'Erro interno.' } }),
+      'POST /api/v1/copies': () => ({ status: 201, json: copy(12, 'MEU-9') }),
+    })
+    renderBooks()
+    await openPanel()
+    const input = await field()
+    await waitFor(() => expect(calls.some((c) => c.key === SUGGESTION)).toBe(true))
+    expect(input).toHaveValue('')
+    expect(screen.queryByText('Erro interno.')).not.toBeInTheDocument()
+    await userEvent.type(input, 'MEU-9')
+    await add()
+    expect(await screen.findByText('Exemplar adicionado.')).toBeInTheDocument()
+    expect(calls.find((c) => c.key === 'POST /api/v1/copies')?.body).toEqual({ bookId: 4, assetCode: 'MEU-9' })
+  })
+
+  it('duplicidade do código sugerido: busca outro e mostra a mensagem do servidor', async () => {
+    let next = 'PAT-00006'
+    mockApi({
+      ...base(),
+      [SUGGESTION]: () => ({ json: { assetCode: next } }),
+      'POST /api/v1/copies': () => { next = 'PAT-00007'; return { status: 422, json: { detail: "já existe um exemplar com o código de patrimônio 'PAT-00006'" } } },
+    })
+    renderBooks()
+    await openPanel()
+    await waitFor(async () => expect(await field()).toHaveValue('PAT-00006'))
+    await add()
+    expect(await screen.findByText(/já existe um exemplar com o código de patrimônio 'PAT-00006'/)).toBeInTheDocument()
+    await waitFor(async () => expect(await field()).toHaveValue('PAT-00007'))
+    expect(screen.getByText(/já existe um exemplar/)).toBeInTheDocument()
+  })
+
+  it('duplicidade de um código que o operador digitou: mantém o texto dele', async () => {
+    const calls = mockApi({
+      ...base(),
+      [SUGGESTION]: () => ({ json: { assetCode: 'PAT-00006' } }),
+      'POST /api/v1/copies': () => ({ status: 422, json: { detail: "já existe um exemplar com o código de patrimônio 'PAT-00005'" } }),
+    })
+    renderBooks()
+    await openPanel()
+    const input = await field()
+    await waitFor(() => expect(input).toHaveValue('PAT-00006'))
+    await userEvent.clear(input)
+    await userEvent.type(input, 'PAT-00005')
+    const before = calls.filter((c) => c.key === SUGGESTION).length
+    await add()
+    expect(await screen.findByText(/já existe um exemplar/)).toBeInTheDocument()
+    expect(screen.getByLabelText(/^Novo exemplar/)).toHaveValue('PAT-00005')
+    expect(calls.filter((c) => c.key === SUGGESTION).length).toBe(before)
+  })
+})
