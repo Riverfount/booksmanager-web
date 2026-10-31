@@ -10,6 +10,7 @@ const actionLabels: Record<AuditAction, string> = {
   USER_DEACTIVATED: 'Usuário inativado',
   USER_UNBLOCKED: 'Usuário desbloqueado',
   USER_REACTIVATED: 'Usuário reativado',
+  USER_PASSWORD_CHANGED: 'Senha trocada pelo usuário',
   USER_PASSWORD_RESET: 'Senha de usuário redefinida',
   READER_BLOCKED: 'Leitor bloqueado',
   READER_UNBLOCKED: 'Leitor desbloqueado',

@@ -88,6 +88,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trocar a minha senha (administrador e operador)
+         * @description Troca a senha de quem está logado. Exige a senha atual: se estiver errada a troca é recusada e a tentativa conta para o bloqueio da conta, e enquanto a conta estiver bloqueada nada é conferido. A nova senha segue a política de senha (de 8 a 25 caracteres, com maiúscula, minúscula, número e caractere especial). Depois da troca todas as sessões do usuário são encerradas e ele entra de novo com a nova senha; o access token já emitido vale até expirar (no máximo 15 minutos). Só para administrador e operador: o leitor troca a senha em `POST /api/v1/me/password`. A troca fica registrada na auditoria, sem nenhuma senha.
+         */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/suspensions/{id}/end": {
         parameters: {
             query?: never;
@@ -293,7 +313,7 @@ export interface paths {
          * Trocar a minha senha
          * @description Troca a senha do leitor logado. Exige a senha atual: se estiver errada a troca é recusada e a tentativa conta para o bloqueio da conta. A nova senha segue a política de senha. Depois da troca todas as sessões do leitor são encerradas e ele entra de novo com a nova senha. Só para o perfil de leitor.
          */
-        post: operations["changePassword"];
+        post: operations["changePassword_1"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1596,6 +1616,18 @@ export interface components {
              */
             blockedUntil?: string;
         };
+        ChangeOwnPasswordRequest: {
+            /**
+             * @description Senha atual. Se estiver errada, a troca é recusada e a tentativa conta para o bloqueio da conta.
+             * @example Cur#rent1Pass
+             */
+            currentPassword: string;
+            /**
+             * @description Nova senha: de 8 a 25 caracteres, com ao menos uma letra maiúscula, uma minúscula, um número e um caractere especial. É guardada só como hash e nunca é devolvida.
+             * @example N3w-Pass#word
+             */
+            newPassword: string;
+        };
         EndSuspensionRequest: {
             /**
              * @description Justificativa do encerramento antecipado, obrigatória; fica registrada na suspensão
@@ -1927,18 +1959,6 @@ export interface components {
              * @example 3
              */
             queuePosition?: number;
-        };
-        ChangeOwnPasswordRequest: {
-            /**
-             * @description Senha atual. Se estiver errada, a troca é recusada e a tentativa conta para o bloqueio da conta.
-             * @example Cur#rent1Pass
-             */
-            currentPassword: string;
-            /**
-             * @description Nova senha: de 8 a 25 caracteres, com ao menos uma letra maiúscula, uma minúscula, um número e um caractere especial. É guardada só como hash e nunca é devolvida.
-             * @example N3w-Pass#word
-             */
-            newPassword: string;
         };
         FineSummary: {
             /**
@@ -3828,7 +3848,7 @@ export interface components {
              * @example FINE_WAIVED
              * @enum {string}
              */
-            action: "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGIN_LOCKOUT" | "USER_CREATED" | "USER_UPDATED" | "USER_DEACTIVATED" | "USER_UNBLOCKED" | "USER_PASSWORD_RESET" | "READER_BLOCKED" | "READER_UNBLOCKED" | "READER_DEACTIVATED" | "FINE_PAID" | "FINE_WAIVED" | "SUSPENSION_ENDED" | "LIBRARY_CONFIGURATION_UPDATED" | "BOOK_DEACTIVATED" | "BOOK_REACTIVATED" | "AUTHOR_DEACTIVATED" | "AUTHOR_REACTIVATED" | "CATEGORY_DEACTIVATED" | "CATEGORY_REACTIVATED" | "COPY_DEACTIVATED" | "COPY_REACTIVATED" | "READER_ACCESS_INVITED" | "READER_ACCESS_GRANTED" | "READER_ACCESS_REVOKED" | "READER_PASSWORD_RESET" | "RESERVATION_CANCELLED" | "READER_PROFILE_UPDATED" | "READER_PASSWORD_CHANGED" | "USER_REACTIVATED";
+            action: "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGIN_LOCKOUT" | "USER_CREATED" | "USER_UPDATED" | "USER_DEACTIVATED" | "USER_UNBLOCKED" | "USER_PASSWORD_RESET" | "READER_BLOCKED" | "READER_UNBLOCKED" | "READER_DEACTIVATED" | "FINE_PAID" | "FINE_WAIVED" | "SUSPENSION_ENDED" | "LIBRARY_CONFIGURATION_UPDATED" | "BOOK_DEACTIVATED" | "BOOK_REACTIVATED" | "AUTHOR_DEACTIVATED" | "AUTHOR_REACTIVATED" | "CATEGORY_DEACTIVATED" | "CATEGORY_REACTIVATED" | "COPY_DEACTIVATED" | "COPY_REACTIVATED" | "READER_ACCESS_INVITED" | "READER_ACCESS_GRANTED" | "READER_ACCESS_REVOKED" | "READER_PASSWORD_RESET" | "RESERVATION_CANCELLED" | "READER_PROFILE_UPDATED" | "READER_PASSWORD_CHANGED" | "USER_REACTIVATED" | "USER_PASSWORD_CHANGED";
             /**
              * @description O tipo do alvo da operação; nulo quando ela não tem alvo (um login falho de um usuário desconhecido)
              * @example FINE
@@ -4177,6 +4197,73 @@ export interface operations {
                 };
             };
             /** @description O acesso de um leitor não é reativado: é reaberto por um novo convite */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeOwnPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Senha trocada; todas as sessões foram encerradas */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Requisição inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description O usuário do token não existe */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Senha atual errada, conta bloqueada por tentativas erradas, usuário inativo ou nova senha fora da política (diz o que falta) */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -4977,7 +5064,7 @@ export interface operations {
             };
         };
     };
-    changePassword: {
+    changePassword_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -9238,7 +9325,7 @@ export interface operations {
                  */
                 actorId?: number;
                 /** @description A operação registrada */
-                action?: "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGIN_LOCKOUT" | "USER_CREATED" | "USER_UPDATED" | "USER_DEACTIVATED" | "USER_UNBLOCKED" | "USER_PASSWORD_RESET" | "READER_BLOCKED" | "READER_UNBLOCKED" | "READER_DEACTIVATED" | "FINE_PAID" | "FINE_WAIVED" | "SUSPENSION_ENDED" | "LIBRARY_CONFIGURATION_UPDATED" | "BOOK_DEACTIVATED" | "BOOK_REACTIVATED" | "AUTHOR_DEACTIVATED" | "AUTHOR_REACTIVATED" | "CATEGORY_DEACTIVATED" | "CATEGORY_REACTIVATED" | "COPY_DEACTIVATED" | "COPY_REACTIVATED" | "READER_ACCESS_INVITED" | "READER_ACCESS_GRANTED" | "READER_ACCESS_REVOKED" | "READER_PASSWORD_RESET" | "RESERVATION_CANCELLED" | "READER_PROFILE_UPDATED" | "READER_PASSWORD_CHANGED" | "USER_REACTIVATED";
+                action?: "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGIN_LOCKOUT" | "USER_CREATED" | "USER_UPDATED" | "USER_DEACTIVATED" | "USER_UNBLOCKED" | "USER_PASSWORD_RESET" | "READER_BLOCKED" | "READER_UNBLOCKED" | "READER_DEACTIVATED" | "FINE_PAID" | "FINE_WAIVED" | "SUSPENSION_ENDED" | "LIBRARY_CONFIGURATION_UPDATED" | "BOOK_DEACTIVATED" | "BOOK_REACTIVATED" | "AUTHOR_DEACTIVATED" | "AUTHOR_REACTIVATED" | "CATEGORY_DEACTIVATED" | "CATEGORY_REACTIVATED" | "COPY_DEACTIVATED" | "COPY_REACTIVATED" | "READER_ACCESS_INVITED" | "READER_ACCESS_GRANTED" | "READER_ACCESS_REVOKED" | "READER_PASSWORD_RESET" | "RESERVATION_CANCELLED" | "READER_PROFILE_UPDATED" | "READER_PASSWORD_CHANGED" | "USER_REACTIVATED" | "USER_PASSWORD_CHANGED";
                 /** @description O tipo do alvo da operação */
                 targetType?: "USER" | "READER" | "FINE" | "SUSPENSION" | "LIBRARY_CONFIGURATION" | "BOOK" | "AUTHOR" | "CATEGORY" | "COPY" | "RESERVATION";
                 /**

@@ -38,6 +38,7 @@ export function LoginPage() {
   return (
     <PublicShell>
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+        {state.status === 'anonymous' && state.notice && <Banner kind="success">{state.notice}</Banner>}
         {failure && <Banner kind="error">{failure}</Banner>}
         <TextField id={fid('login')} label="Login" required autoComplete="username" autoCapitalize="none" error={errors.login?.message} {...register('login')} />
         <TextField id={fid('password')} label="Senha" required type="password" autoComplete="current-password" error={errors.password?.message} {...register('password')} />

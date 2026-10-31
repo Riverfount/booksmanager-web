@@ -6,20 +6,18 @@ import type { z } from 'zod'
 import { api, call, errorMessage } from '../../api/client'
 import type { OwnProfile } from '../../api/types'
 import { useAuth } from '../../auth/AuthContext'
-import { PasswordRules } from '../../components/PasswordRules'
+import { ChangePasswordForm } from '../../components/ChangePasswordForm'
 import { Banner, Button, Card, ErrorSummary, FormCard, PageHeader, Spinner, TextField } from '../../components/ui'
 import { formatDate } from '../../lib/dates'
 import { applyServerErrors, errorItems, errorTitle, fid, serverErrors } from '../../lib/form'
 import { maskPhone } from '../../lib/masks'
-import { changePasswordSchema, ownContactSchemaFor } from '../../lib/schemas'
+import { ownContactSchemaFor } from '../../lib/schemas'
 
 type ContactValues = z.infer<ReturnType<typeof ownContactSchemaFor>>
-type PasswordValues = z.infer<typeof changePasswordSchema>
 
 const contactFields = { email: 'email', phone: 'phone', 'guardian.name': 'guardianName', 'guardian.email': 'guardianEmail', 'guardian.phone': 'guardianPhone' }
-// the API refuses a wrong current password with a 422 that has no field: pin it to the password field of each form
+// the API refuses a wrong current password with a 422 that has no field: pin it to the password field of the form
 const emailPasswordRule: [RegExp, string][] = [[/senha atual/i, 'emailPassword']]
-const passwordRule: [RegExp, string][] = [[/senha atual/i, 'currentPassword']]
 
 /** The reader's own registration: contact data and password are theirs to change; the identity data is the library's. */
 export function MyProfilePage() {
@@ -121,17 +119,6 @@ function ContactForm({ profile }: { profile: OwnProfile }) {
 function PasswordForm() {
   const { signOut } = useAuth()
   const [done, setDone] = useState(false)
-  const { register, handleSubmit, setError, watch, reset, formState: { errors, isSubmitted } } = useForm<PasswordValues>({
-    resolver: zodResolver(changePasswordSchema),
-    defaultValues: { currentPassword: '', password: '', confirmPassword: '' },
-  })
-  const change = useMutation({
-    mutationFn: (v: PasswordValues) => call(api.POST('/api/v1/me/password', { body: { currentPassword: v.currentPassword, newPassword: v.password } })),
-    onError: (error) => applyServerErrors(serverErrors(error, { newPassword: 'password', currentPassword: 'currentPassword' }, passwordRule), setError),
-    onSuccess: () => { reset(); setDone(true) },
-  })
-  const serverBanner = change.isError ? serverErrors(change.error, { newPassword: 'password', currentPassword: 'currentPassword' }, passwordRule).banner : undefined
-  const items = errorItems(errors, { currentPassword: 'Senha atual', password: 'Nova senha', confirmPassword: 'Confirmação da senha' })
 
   if (done) {
     // the API ends every session of the reader on a password change, so the next step is to sign in again
@@ -144,15 +131,7 @@ function PasswordForm() {
   }
   return (
     <FormCard title="Trocar a senha">
-      <form noValidate onSubmit={handleSubmit((v) => change.mutate(v))} className="flex flex-col gap-4">
-        {serverBanner && <Banner kind="error">{serverBanner}</Banner>}
-        <ErrorSummary title={errorTitle(items.length, 'trocar a senha')} items={items} />
-        <TextField id={fid('currentPassword')} label="Senha atual" required type="password" autoComplete="current-password" error={errors.currentPassword?.message} {...register('currentPassword')} />
-        <TextField id={fid('password')} label="Nova senha" required type="password" autoComplete="new-password" maxLength={25} aria-describedby="rules-nova-senha" error={errors.password?.message} {...register('password')} />
-        <PasswordRules id="rules-nova-senha" password={watch('password')} submitted={isSubmitted} />
-        <TextField id={fid('confirmPassword')} label="Repita a nova senha" required type="password" autoComplete="new-password" maxLength={25} error={errors.confirmPassword?.message} {...register('confirmPassword')} />
-        <div><Button type="submit" variant="primary" disabled={change.isPending}>{change.isPending ? 'Salvando…' : 'Trocar a senha'}</Button></div>
-      </form>
+      <ChangePasswordForm send={(body) => call(api.POST('/api/v1/me/password', { body }))} onDone={() => setDone(true)} />
     </FormCard>
   )
 }
