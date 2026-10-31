@@ -30,6 +30,8 @@ const actionLabels: Record<AuditAction, string> = {
   READER_ACCESS_REVOKED: 'Acesso do leitor revogado',
   READER_PASSWORD_RESET: 'Senha de leitor redefinida',
   RESERVATION_CANCELLED: 'Reserva cancelada',
+  READER_PROFILE_UPDATED: 'Cadastro alterado pelo leitor',
+  READER_PASSWORD_CHANGED: 'Senha trocada pelo leitor',
 }
 
 const targetLabels: Record<AuditTargetType, string> = {

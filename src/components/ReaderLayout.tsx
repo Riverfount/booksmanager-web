@@ -8,6 +8,7 @@ const items = [
   { to: '/meu/catalogo', label: 'Catálogo' },
   { to: '/meu/emprestimos', label: 'Meus empréstimos' },
   { to: '/meu/reservas', label: 'Minhas reservas' },
+  { to: '/meu/dados', label: 'Meus dados' },
 ]
 
 /** Frame of the reader area: a top bar with the navigation, since a reader has only a handful of screens. */

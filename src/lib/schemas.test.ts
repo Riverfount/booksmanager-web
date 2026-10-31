@@ -1,4 +1,4 @@
-import { acceptInvitationSchema, authorSchema, forgotPasswordSchema, newPasswordSchema, bookSchema, bookSchemaFor, configSchema, isbnValid, passwordChecks, readerSchema, userSchema } from './schemas'
+import { acceptInvitationSchema, authorSchema, changePasswordSchema, ownContactSchemaFor, forgotPasswordSchema, newPasswordSchema, bookSchema, bookSchemaFor, configSchema, isbnValid, passwordChecks, readerSchema, userSchema } from './schemas'
 import { isMinor } from './dates'
 
 const msgs = (r: { success: boolean; error?: { issues: { message: string }[] } }) => (r.success ? [] : r.error!.issues.map((i) => i.message))
@@ -129,5 +129,40 @@ describe('acesso do leitor', () => {
     expect(forgotPasswordSchema.safeParse({ email: 'ana@exemplo.com' }).success).toBe(true)
     expect(forgotPasswordSchema.safeParse({ email: 'ana@' }).success).toBe(false)
     expect(msgs(forgotPasswordSchema.safeParse({ email: '' }))[0]).toBeTruthy()
+  })
+})
+
+describe('cadastro do próprio leitor', () => {
+  const base = { email: 'ana@exemplo.com', phone: '', guardianName: '', guardianEmail: '', guardianPhone: '', emailPassword: '' }
+
+  it('não pede a senha enquanto o e-mail não muda', () => {
+    expect(ownContactSchemaFor(false, 'ana@exemplo.com').safeParse(base).success).toBe(true)
+  })
+
+  it('pede a senha atual para trocar o e-mail', () => {
+    const schema = ownContactSchemaFor(false, 'ana@exemplo.com')
+    expect(msgs(schema.safeParse({ ...base, email: 'nova@exemplo.com' }))).toContain('Informe a senha atual para trocar o e-mail.')
+    expect(schema.safeParse({ ...base, email: 'nova@exemplo.com', emailPassword: 'x' }).success).toBe(true)
+  })
+
+  it('valida o formato do e-mail e do telefone', () => {
+    const schema = ownContactSchemaFor(false, 'ana@exemplo.com')
+    expect(schema.safeParse({ ...base, email: 'ana@', emailPassword: 'x' }).success).toBe(false)
+    expect(schema.safeParse({ ...base, phone: 'abc' }).success).toBe(false)
+  })
+
+  it('exige nome e e-mail do responsável só do menor', () => {
+    expect(msgs(ownContactSchemaFor(true, 'ana@exemplo.com').safeParse(base))).toEqual(['Informe o nome do responsável.', 'Informe o e-mail do responsável.'])
+    expect(ownContactSchemaFor(true, 'ana@exemplo.com').safeParse({ ...base, guardianName: 'Carla', guardianEmail: 'carla' }).success).toBe(false)
+    expect(ownContactSchemaFor(true, 'ana@exemplo.com').safeParse({ ...base, guardianName: 'Carla', guardianEmail: 'carla@exemplo.com' }).success).toBe(true)
+    expect(ownContactSchemaFor(false, 'ana@exemplo.com').safeParse(base).success).toBe(true)
+  })
+
+  it('troca de senha: pede a atual, aplica as regras e confere a confirmação', () => {
+    const ok = { currentPassword: 'Antiga#123', password: 'Nova#Senha1', confirmPassword: 'Nova#Senha1' }
+    expect(changePasswordSchema.safeParse(ok).success).toBe(true)
+    expect(msgs(changePasswordSchema.safeParse({ ...ok, currentPassword: '' }))).toContain('Informe a senha atual.')
+    expect(changePasswordSchema.safeParse({ ...ok, password: 'fraca', confirmPassword: 'fraca' }).success).toBe(false)
+    expect(msgs(changePasswordSchema.safeParse({ ...ok, confirmPassword: 'Outra#Senha1' }))).toContain('As senhas não são iguais.')
   })
 })

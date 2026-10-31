@@ -33,7 +33,7 @@ export interface paths {
         };
         /**
          * Listar usuários
-         * @description Lista os usuários do sistema de forma paginada (máximo de 100 por página), só para administrador, com filtro opcional por trecho do login (sem diferenciar maiúsculas) e por perfil. Sem o perfil, só os usuários que operam o sistema (ADMIN e OPERATOR): os acessos dos leitores são geridos pelo cadastro do leitor e aparecem com role=READER. Por padrão, só os ativos e em ordem de login. Cada item mostra o perfil e se o usuário está bloqueado agora por tentativas de login; nunca a senha nem o hash.
+         * @description Lista os usuários do sistema de forma paginada (máximo de 100 por página), só para administrador, com filtro opcional por trecho do login (sem diferenciar maiúsculas) e por perfil. Sem o perfil, traz todos os usuários, de qualquer perfil (ADMIN, OPERATOR e READER, este com o acesso de um leitor). Por padrão, só os ativos e em ordem de login. Cada item mostra o perfil e se o usuário está bloqueado agora por tentativas de login; nunca a senha nem o hash.
          */
         get: operations["list"];
         put?: never;
@@ -254,6 +254,26 @@ export interface paths {
          * @description Cancela a reserva do leitor logado (RF17), sem corpo e sem justificativa, tanto a que espera na fila quanto a que guarda um exemplar. Um exemplar que ela guardava passa ao próximo da fila ou volta a disponível (RF18), mas a resposta traz só a reserva cancelada, nunca a de quem recebeu o exemplar. Reserva de outro leitor devolve 404, igual a uma que não existe, antes de qualquer outra verificação. Só para o perfil de leitor.
          */
         post: operations["cancel_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Trocar a minha senha
+         * @description Troca a senha do leitor logado. Exige a senha atual: se estiver errada a troca é recusada e a tentativa conta para o bloqueio da conta. A nova senha segue a política de senha. Depois da troca todas as sessões do leitor são encerradas e ele entra de novo com a nova senha. Só para o perfil de leitor.
+         */
+        post: operations["changePassword"];
         delete?: never;
         options?: never;
         head?: never;
@@ -736,6 +756,30 @@ export interface paths {
         patch: operations["update_1"];
         trace?: never;
     };
+    "/api/v1/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Consultar o meu cadastro
+         * @description Devolve o cadastro do leitor logado: nome, documento mascarado, e-mail, telefone, data de nascimento, o responsável (se houver) e se o leitor é menor de 18 anos hoje. Só traz o que é do próprio leitor. Só para o perfil de leitor.
+         */
+        get: operations["get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Alterar o meu cadastro
+         * @description Altera só os campos enviados (os omitidos mantêm o valor atual): telefone, e-mail e, para o leitor menor de 18 anos, o responsável. Trocar o e-mail exige a senha atual (`currentPassword`). Nome, documento, data de nascimento, bloqueio e situação só a equipe altera: não fazem parte do contrato e são ignorados se enviados. Só para o perfil de leitor.
+         */
+        patch: operations["update_2"];
+        trace?: never;
+    };
     "/api/v1/library-configuration": {
         parameters: {
             query?: never;
@@ -747,7 +791,7 @@ export interface paths {
          * Consultar a configuração da biblioteca
          * @description Devolve as regras vigentes: a política de penalidade por atraso e seus valores, o prazo de empréstimo, os limites de empréstimos e de renovações e o prazo de retirada de reservas. Só para administrador. A configuração é única: não tem id.
          */
-        get: operations["get"];
+        get: operations["get_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -757,7 +801,7 @@ export interface paths {
          * Alterar a configuração da biblioteca
          * @description Altera as regras da biblioteca, só para administrador. Um campo omitido ou nulo mantém o valor atual; campos desconhecidos, inclusive `id`, são ignorados. As regras são conferidas sobre o resultado, então um valor mantido também conta (subir a multa diária acima do teto atual é recusado); se algo for inválido, nada muda. A alteração vale só para os atrasos futuros: devoluções já registradas não são recalculadas, e o prazo dos empréstimos já feitos não muda.
          */
-        patch: operations["update_2"];
+        patch: operations["update_3"];
         trace?: never;
     };
     "/api/v1/copies/{id}": {
@@ -785,7 +829,7 @@ export interface paths {
          * Editar exemplar
          * @description Altera só os campos enviados; os omitidos mantêm o valor atual. Hoje só o status é editável, nas transições operacionais: marcar como DAMAGED ou LOST, ou voltar a AVAILABLE um exemplar DAMAGED ou LOST. BORROWED e RESERVED só mudam pelos fluxos de empréstimo, devolução e reserva, e um exemplar emprestado não pode ser marcado como danificado ou extraviado por esta rota (RN10). O código de patrimônio e o livro são imutáveis: se vierem no corpo, são ignorados.
          */
-        patch: operations["update_3"];
+        patch: operations["update_4"];
         trace?: never;
     };
     "/api/v1/categories/{id}": {
@@ -813,7 +857,7 @@ export interface paths {
          * Editar categoria
          * @description Altera só os campos enviados; os omitidos mantêm o valor atual. O nome continua único: manter o próprio nome atual não é considerado repetição.
          */
-        patch: operations["update_4"];
+        patch: operations["update_5"];
         trace?: never;
     };
     "/api/v1/books/{id}": {
@@ -841,7 +885,7 @@ export interface paths {
          * Editar livro
          * @description Altera só os campos enviados; os omitidos mantêm o valor atual. A editora e o ano podem ser trocados, mas não esvaziados (editora em branco é recusada); um livro anterior à exigência, sem editora ou ano, continua editável e pode ser completado. O ISBN é imutável (RN01): se vier no corpo, é ignorado. Categoria e autores só precisam estar ativos quando são novos para o livro; os que ele já tinha continuam aceitos mesmo inativados depois. O conjunto de autores enviado substitui o atual.
          */
-        patch: operations["update_5"];
+        patch: operations["update_6"];
         trace?: never;
     };
     "/api/v1/authors/{id}": {
@@ -869,7 +913,7 @@ export interface paths {
          * Editar autor
          * @description Altera só os campos enviados; os omitidos mantêm o valor atual. Renomear para o nome de outro autor ativo (sem diferenciar maiúsculas) é recusado com 422 e o `existingAuthorId`, a menos que venha `allowDuplicate: true`; manter o próprio nome não é duplicidade.
          */
-        patch: operations["update_6"];
+        patch: operations["update_7"];
         trace?: never;
     };
     "/api/v1/users/me": {
@@ -881,7 +925,7 @@ export interface paths {
         };
         /**
          * Consultar o usuário logado
-         * @description Devolve o id, o login, o nome de exibição (nulo quando não há; use o login) e o perfil de quem fez a requisição, lido do token. Vale para administrador e operador. Usuário inativado ou inexistente recebe 401, mesmo com um token ainda dentro da validade. Nunca traz a senha nem o hash.
+         * @description Devolve o id, o login, o nome de exibição (nulo quando não há; use o login) e o perfil de quem fez a requisição, lido do token. Vale para todos os perfis (administrador, operador e leitor). Usuário inativado ou inexistente recebe 401, mesmo com um token ainda dentro da validade. Nunca traz a senha nem o hash.
          */
         get: operations["me"];
         put?: never;
@@ -1063,7 +1107,7 @@ export interface paths {
          * Resumo do painel
          * @description Devolve, numa chamada só, os números do painel: exemplares ativos, empréstimos ativos, empréstimos atrasados hoje, leitores suspensos hoje (contados por leitor, não por suspensão) e, por categoria, os livros ativos e os exemplares ativos (categoria sem livros vem com zero). Cada número é o total da listagem correspondente, exceto os leitores suspensos, e os exemplares das categorias somam o total de exemplares. "Hoje" é o dia do relógio da aplicação, em `America/Sao_Paulo`.
          */
-        get: operations["get_1"];
+        get: operations["get_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1083,7 +1127,7 @@ export interface paths {
          * Situação do acervo
          * @description Devolve, numa chamada só, o total de exemplares ativos e quantos há em cada status (`AVAILABLE`, `BORROWED`, `RESERVED`, `DAMAGED` e `LOST`; um status sem exemplares vem com zero, então a soma por status é sempre o total). Os exemplares inativos (RN14) vêm à parte, em `inactiveCopies`, e não entram na contagem dos ativos.
          */
-        get: operations["get_2"];
+        get: operations["get_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1143,7 +1187,7 @@ export interface paths {
          * Consultar a minha situação
          * @description Devolve a situação do leitor logado hoje: se poderia pegar um livro emprestado (`canBorrow`) e, se não, todos os motivos de uma vez, os mesmos da recusa de um empréstimo no balcão; se está bloqueado (sem o motivo, que é decisão do operador); o total das multas pendentes; a suspensão em vigor, com o início e o dia em que volta a poder emprestar; e quantos empréstimos e reservas ativas tem, com os limites da biblioteca. Só traz o que é do próprio leitor. Bloqueado, suspenso ou com multa pendente também consulta normalmente. Só para o perfil de leitor.
          */
-        get: operations["get_3"];
+        get: operations["get_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1323,7 +1367,7 @@ export interface paths {
          * Consultar o prazo e os limites de empréstimo
          * @description Devolve o prazo de empréstimo, os limites de empréstimos simultâneos e de renovações e o prazo de retirada de reservas, para a tela mostrar "14 dias, limite de 3, renovado 0/2". Vale para administrador e operador e é só leitura. A política de penalidade e os valores de multa e suspensão não vêm aqui: ficam na configuração completa, só para administrador.
          */
-        get: operations["get_4"];
+        get: operations["get_5"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1843,6 +1887,18 @@ export interface components {
              * @example 3
              */
             queuePosition?: number;
+        };
+        ChangeOwnPasswordRequest: {
+            /**
+             * @description Senha atual. Se estiver errada, a troca é recusada e a tentativa conta para o bloqueio da conta.
+             * @example Cur#rent1Pass
+             */
+            currentPassword: string;
+            /**
+             * @description Nova senha: de 8 a 25 caracteres, com ao menos uma letra maiúscula, uma minúscula, um número e um caractere especial. É guardada só como hash e nunca é devolvida.
+             * @example N3w-Pass#word
+             */
+            newPassword: string;
         };
         FineSummary: {
             /**
@@ -2417,6 +2473,60 @@ export interface components {
             birthDate?: string;
             /** @description Responsável (opcional): os campos enviados substituem os atuais, um a um; o leitor menor de 18 anos precisa ficar com nome e e-mail do responsável */
             guardian?: components["schemas"]["GuardianRequest"];
+        };
+        UpdateOwnProfileRequest: {
+            /**
+             * @description Novo telefone (opcional)
+             * @example 11 91234-5678
+             */
+            phone?: string;
+            /**
+             * @description Novo e-mail (opcional). Trocar o e-mail exige a senha atual (`currentPassword`), porque é para ele que vão o convite e a redefinição de senha.
+             * @example maria@example.com
+             */
+            email?: string;
+            /** @description Responsável (opcional), só para o leitor menor de 18 anos: os campos enviados substituem os atuais, um a um */
+            guardian?: components["schemas"]["GuardianRequest"];
+            /**
+             * @description Senha atual; obrigatória só quando o e-mail muda. Nunca é devolvida.
+             * @example Cur#rent1Pass
+             */
+            currentPassword?: string;
+        };
+        OwnProfileResponse: {
+            /**
+             * @description Nome do leitor; só a equipe altera
+             * @example Maria Silva
+             */
+            name: string;
+            /**
+             * @description Documento mascarado (só os dois últimos caracteres aparecem); só a equipe altera
+             * @example *********00
+             */
+            document: string;
+            /**
+             * @description E-mail do leitor
+             * @example maria@example.com
+             */
+            email: string;
+            /**
+             * @description Telefone do leitor
+             * @example 11 91234-5678
+             */
+            phone?: string;
+            /**
+             * Format: date
+             * @description Data de nascimento (ISO-8601); só a equipe altera
+             * @example 1990-05-10
+             */
+            birthDate: string;
+            /**
+             * @description Se o leitor tem menos de 18 anos hoje; só então o responsável pode ser alterado
+             * @example false
+             */
+            minor: boolean;
+            /** @description Responsável; só existe quando foi informado */
+            guardian?: components["schemas"]["GuardianResponse"];
         };
         UpdateLibraryConfigurationRequest: {
             /**
@@ -3661,7 +3771,7 @@ export interface components {
              * @example FINE_WAIVED
              * @enum {string}
              */
-            action: "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGIN_LOCKOUT" | "USER_CREATED" | "USER_UPDATED" | "USER_DEACTIVATED" | "USER_UNBLOCKED" | "USER_PASSWORD_RESET" | "READER_BLOCKED" | "READER_UNBLOCKED" | "READER_DEACTIVATED" | "FINE_PAID" | "FINE_WAIVED" | "SUSPENSION_ENDED" | "LIBRARY_CONFIGURATION_UPDATED" | "BOOK_DEACTIVATED" | "BOOK_REACTIVATED" | "AUTHOR_DEACTIVATED" | "AUTHOR_REACTIVATED" | "CATEGORY_DEACTIVATED" | "CATEGORY_REACTIVATED" | "COPY_DEACTIVATED" | "COPY_REACTIVATED" | "READER_ACCESS_INVITED" | "READER_ACCESS_GRANTED" | "READER_ACCESS_REVOKED" | "READER_PASSWORD_RESET" | "RESERVATION_CANCELLED";
+            action: "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGIN_LOCKOUT" | "USER_CREATED" | "USER_UPDATED" | "USER_DEACTIVATED" | "USER_UNBLOCKED" | "USER_PASSWORD_RESET" | "READER_BLOCKED" | "READER_UNBLOCKED" | "READER_DEACTIVATED" | "FINE_PAID" | "FINE_WAIVED" | "SUSPENSION_ENDED" | "LIBRARY_CONFIGURATION_UPDATED" | "BOOK_DEACTIVATED" | "BOOK_REACTIVATED" | "AUTHOR_DEACTIVATED" | "AUTHOR_REACTIVATED" | "CATEGORY_DEACTIVATED" | "CATEGORY_REACTIVATED" | "COPY_DEACTIVATED" | "COPY_REACTIVATED" | "READER_ACCESS_INVITED" | "READER_ACCESS_GRANTED" | "READER_ACCESS_REVOKED" | "READER_PASSWORD_RESET" | "RESERVATION_CANCELLED" | "READER_PROFILE_UPDATED" | "READER_PASSWORD_CHANGED";
             /**
              * @description O tipo do alvo da operação; nulo quando ela não tem alvo (um login falho de um usuário desconhecido)
              * @example FINE
@@ -3797,7 +3907,7 @@ export interface operations {
                 /** @description Listar ativos (true) ou inativos (false) */
                 active?: boolean;
                 /**
-                 * @description Listar só este perfil (ADMIN, OPERATOR ou READER). Sem ele, a lista traz os usuários que operam o sistema (ADMIN e OPERATOR), sem os acessos dos leitores
+                 * @description Listar só este perfil (ADMIN, OPERATOR ou READER). Sem ele, a lista traz os usuários de todos os perfis
                  * @example READER
                  */
                 role?: "ADMIN" | "OPERATOR" | "READER";
@@ -4742,6 +4852,73 @@ export interface operations {
                 };
             };
             /** @description Reserva já encerrada: retirada, expirada ou cancelada */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeOwnPasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Senha trocada; todas as sessões foram encerradas */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Requisição inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description O leitor do token não tem acesso ativo */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Senha atual errada, conta bloqueada por tentativas erradas, leitor inativo ou nova senha fora da política (diz o que falta) */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -6646,6 +6823,122 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
+            /** @description O cadastro do leitor */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["OwnProfileResponse"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description O leitor do token não existe */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateOwnProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description O cadastro do leitor, já alterado */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["OwnProfileResponse"];
+                };
+            };
+            /** @description Requisição inválida */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description O leitor do token não existe */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Regra de negócio violada: dado inválido, responsável de leitor maior de 18 anos ou menor sem responsável, leitor inativo, senha atual ausente ou errada (a errada conta para o bloqueio da conta) ou conta bloqueada */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
             /** @description Configuração vigente */
             200: {
                 headers: {
@@ -6675,7 +6968,7 @@ export interface operations {
             };
         };
     };
-    update_2: {
+    update_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -6840,7 +7133,7 @@ export interface operations {
             };
         };
     };
-    update_3: {
+    update_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -7007,7 +7300,7 @@ export interface operations {
             };
         };
     };
-    update_4: {
+    update_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -7183,7 +7476,7 @@ export interface operations {
             };
         };
     };
-    update_5: {
+    update_6: {
         parameters: {
             query?: never;
             header?: never;
@@ -7386,7 +7679,7 @@ export interface operations {
             };
         };
     };
-    update_6: {
+    update_7: {
         parameters: {
             query?: never;
             header?: never;
@@ -7968,7 +8261,7 @@ export interface operations {
             };
         };
     };
-    get_1: {
+    get_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -8006,7 +8299,7 @@ export interface operations {
             };
         };
     };
-    get_2: {
+    get_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -8120,7 +8413,7 @@ export interface operations {
             };
         };
     };
-    get_3: {
+    get_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -8628,7 +8921,7 @@ export interface operations {
             };
         };
     };
-    get_4: {
+    get_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -8792,7 +9085,7 @@ export interface operations {
                  */
                 actorId?: number;
                 /** @description A operação registrada */
-                action?: "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGIN_LOCKOUT" | "USER_CREATED" | "USER_UPDATED" | "USER_DEACTIVATED" | "USER_UNBLOCKED" | "USER_PASSWORD_RESET" | "READER_BLOCKED" | "READER_UNBLOCKED" | "READER_DEACTIVATED" | "FINE_PAID" | "FINE_WAIVED" | "SUSPENSION_ENDED" | "LIBRARY_CONFIGURATION_UPDATED" | "BOOK_DEACTIVATED" | "BOOK_REACTIVATED" | "AUTHOR_DEACTIVATED" | "AUTHOR_REACTIVATED" | "CATEGORY_DEACTIVATED" | "CATEGORY_REACTIVATED" | "COPY_DEACTIVATED" | "COPY_REACTIVATED" | "READER_ACCESS_INVITED" | "READER_ACCESS_GRANTED" | "READER_ACCESS_REVOKED" | "READER_PASSWORD_RESET" | "RESERVATION_CANCELLED";
+                action?: "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGIN_LOCKOUT" | "USER_CREATED" | "USER_UPDATED" | "USER_DEACTIVATED" | "USER_UNBLOCKED" | "USER_PASSWORD_RESET" | "READER_BLOCKED" | "READER_UNBLOCKED" | "READER_DEACTIVATED" | "FINE_PAID" | "FINE_WAIVED" | "SUSPENSION_ENDED" | "LIBRARY_CONFIGURATION_UPDATED" | "BOOK_DEACTIVATED" | "BOOK_REACTIVATED" | "AUTHOR_DEACTIVATED" | "AUTHOR_REACTIVATED" | "CATEGORY_DEACTIVATED" | "CATEGORY_REACTIVATED" | "COPY_DEACTIVATED" | "COPY_REACTIVATED" | "READER_ACCESS_INVITED" | "READER_ACCESS_GRANTED" | "READER_ACCESS_REVOKED" | "READER_PASSWORD_RESET" | "RESERVATION_CANCELLED" | "READER_PROFILE_UPDATED" | "READER_PASSWORD_CHANGED";
                 /** @description O tipo do alvo da operação */
                 targetType?: "USER" | "READER" | "FINE" | "SUSPENSION" | "LIBRARY_CONFIGURATION" | "BOOK" | "AUTHOR" | "CATEGORY" | "COPY" | "RESERVATION";
                 /**

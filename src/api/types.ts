@@ -16,6 +16,7 @@ export type AuditEntry = S['AuditEntryResponse']
 export type AuditAction = S['AuditEntryResponse']['action']
 export type AuditTargetType = NonNullable<S['AuditEntryResponse']['targetType']>
 export type ReaderStanding = S['ReaderStandingResponse']
+export type OwnProfile = S['OwnProfileResponse']
 export type ReaderLoan = S['ReaderLoanResponse']
 export type ReaderReservation = S['ReaderReservationResponse']
 export type ReaderBook = S['ReaderBookResponse']
