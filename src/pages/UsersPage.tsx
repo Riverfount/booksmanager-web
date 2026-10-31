@@ -55,6 +55,12 @@ export function UsersPage() {
     mutationFn: (id: number) => call(api.POST('/api/v1/users/{id}/unblock', { params: { path: { id } } })),
     onSuccess: refresh,
   })
+  // Reactivation is harmless (inactivating again undoes it), so there is no confirmation. The API decides what can be
+  // reactivated: a reader access is refused with 422, and its message is shown like any other refusal.
+  const reactivate = useMutation({
+    mutationFn: (id: number) => call(api.POST('/api/v1/users/{id}/reactivate', { params: { path: { id } } })),
+    onSuccess: refresh,
+  })
   const inactivate = useMutation({
     mutationFn: (id: number) => call(api.DELETE('/api/v1/users/{id}', { params: { path: { id } } })),
     onSuccess: () => { setRemoving(null); void refresh() },
@@ -77,6 +83,7 @@ export function UsersPage() {
         <Card className="flex-[2_1_540px]">
           <Pills value={active} onChange={(v) => { setActive(v); setPage(0) }} options={[{ value: 'true', label: 'Ativos' }, { value: 'false', label: 'Inativos' }]} />
           {unblock.isError && <Banner kind="error">{errorMessage(unblock.error)}</Banner>}
+          {reactivate.isError && <Banner kind="error">{errorMessage(reactivate.error)}</Banner>}
           {users.isPending && <Spinner />}
           {users.isError && <Banner kind="error">{errorMessage(users.error)}</Banner>}
           {users.data && users.data.items.length === 0 && <EmptyState>Nenhum usuário encontrado.</EmptyState>}
@@ -93,7 +100,12 @@ export function UsersPage() {
                     header: 'Ações',
                     width: '1.7fr',
                     label: false,
-                    cell: (u) => u.active && (
+                    cell: (u) => !u.active ? (
+                      // A reader access is reopened by a new invitation (the API refuses to reactivate it), so it is not offered here.
+                      u.role === 'READER'
+                        ? <span className="text-xs text-muted">Reaberto por novo convite do leitor</span>
+                        : <Button small aria-label={`Reativar ${u.login}`} disabled={reactivate.isPending} onClick={() => reactivate.mutate(u.id)}>Reativar</Button>
+                    ) : (
                       <div className="flex gap-1">
                         <IconButton label={`Editar ${u.login}`} onClick={() => startEdit(u)}><Icon name="edit" size={18} /></IconButton>
                         <IconButton label={`Redefinir senha de ${u.login}`} onClick={() => setResetting(u)}><Icon name="key" size={18} /></IconButton>
