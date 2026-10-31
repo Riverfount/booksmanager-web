@@ -105,6 +105,50 @@ O Nginx da imagem faz só o que é dele:
 
 Sem proxy na frente, se front e API ficarem em origens diferentes, defina `VITE_API_URL` no build e `APP_CORS_ALLOWED_ORIGINS` no back; o cookie `SameSite=Strict` do refresh token só funciona entre origens do mesmo site, então esse caminho não serve para a produção.
 
+### Como fazer o deploy em produção
+
+O front não sobe sozinho: ele é um serviço (`web`) da pilha de produção do back, atrás do Nginx que termina o TLS. O guia completo (servidor, `.env.prod`, certificado, backup, problemas comuns) é o [`docs/implantacao.md` do BooksManager](https://github.com/Riverfount/BooksManager/blob/main/docs/implantacao.md); abaixo está só a parte do front.
+
+**1. Publicar uma versão da imagem** (na sua máquina, com a `main` atualizada e o CI verde):
+
+```bash
+git switch main && git pull
+git tag v1.0.0            # ou v1.0.0-rc.1 para uma pré-versão
+git push origin v1.0.0
+```
+
+A tag precisa ter o formato `v1.2.3` ou `v1.2.3-rc.1` e apontar para um commit que está na `main`; qualquer outra coisa faz o workflow `Publish image` falhar logo no início. Acompanhe em *Actions → Publish image*. Ele roda lint, tipos, testes e build, constrói a imagem, roda o teste de fumaça, faz um scan com o Trivy (só avisa, não bloqueia) e publica `ghcr.io/riverfount/booksmanager-web:1.0.0` e `:sha-<7 letras>`. Não reaproveite uma versão já publicada (o workflow não impede, e quem já puxou a antiga ficaria com outra imagem sob o mesmo nome): se saiu errada, publique a seguinte.
+
+> Na **primeira** publicação, o pacote nasce privado. Em *Packages → booksmanager-web → Package settings → Change visibility*, deixe-o **público**; do contrário, o servidor precisa de `docker login ghcr.io` com um token que tenha `read:packages`.
+
+**2. Usar a versão no servidor.** No `.env.prod` (modelo: `.env.prod-sample` do back), `WEB_TAG` é **obrigatório** (a pilha não sobe sem ele) e `WEB_IMAGE` já aponta para o registro:
+
+```bash
+WEB_IMAGE=ghcr.io/riverfount/booksmanager-web
+WEB_TAG=1.0.0
+```
+
+```bash
+docker compose --env-file .env.prod -f compose.prod.yaml pull app web
+docker compose --env-file .env.prod -f compose.prod.yaml up -d
+```
+
+O `pull` vem antes de propósito: se a versão não existe no registro (um erro de digitação, por exemplo), ele falha com uma mensagem clara; sem ele o `up` poderia construir uma imagem local com o mesmo nome. **Voltar atrás** é pôr a versão anterior em `WEB_TAG` e repetir os dois comandos. Durante a troca o front continua respondendo; a API fica fora alguns segundos.
+
+**3. Em que ordem atualizar.** Olhe a tabela de mudanças da API em `docs/projeto.md` do back: se todas são *Compatível*, atualize a API primeiro e o front depois; se alguma *Muda o comportamento* ou *Quebra a entrada*, troque `IMAGE_TAG` e `WEB_TAG` no mesmo `up -d` (e volte as duas juntas).
+
+**4. Conferir.** Abra `https://<domínio>/` em um navegador, entre com um usuário de teste e recarregue uma rota interna (por exemplo `/livros`), que deve abrir o app e não uma página 404. O `curl` não basta: só o navegador manda o cabeçalho `Origin`.
+
+| Sintoma | Causa provável |
+| --- | --- |
+| A pilha não sobe e reclama de `WEB_TAG` | A variável está vazia ou ausente no `.env.prod`. |
+| `pull` falha com "manifest unknown" ou "denied" | Versão que não existe, ou pacote ainda privado (veja o aviso acima). |
+| Login do navegador responde **403 "Invalid CORS request"** | `DOMAIN` ou `APP_CORS_ALLOWED_ORIGINS` não é o endereço digitado no navegador (`https://<domínio>`, sem barra no fim). |
+| 502 ou 504 nas telas | O contêiner `web` ou `app` não está de pé: `docker compose ... ps` e `logs`. |
+| Recarregar uma rota devolve 404 do Nginx de fora | O proxy da frente não está mandando `/` para o `web`; use o `deploy/nginx` do back. |
+
+**Antes da versão final**, vale publicar uma pré-versão (`v1.0.0-rc.1`) para ver os workflows rodarem de verdade e puxar a imagem no servidor uma vez; só então a `v1.0.0`.
+
 ## Limitações conhecidas
 
 - Os selects de categoria carregam até 100 itens (limite de página da API).
