@@ -155,6 +155,35 @@ export const acceptInvitationSchema = z.object({ login: loginField, password: pa
 /** A reader sets a new password from the reset link. */
 export const newPasswordSchema = z.object({ password: passwordField, confirmPassword: z.string() }).superRefine(mustMatch)
 
+/**
+ * What a reader edits about themself. The guardian fields are only used for a minor; changing the e-mail asks for the
+ * current password (the API decides, this just answers early). Nothing about the identity data is here.
+ */
+export const ownContactSchemaFor = (minor: boolean, currentEmail: string) =>
+  z
+    .object({
+      email: emailField,
+      phone: phoneField,
+      guardianName: z.string().trim().max(150, 'Use até 150 caracteres.'),
+      guardianEmail: z.string().trim(),
+      guardianPhone: phoneField,
+      emailPassword: z.string(),
+    })
+    .superRefine((v, ctx) => {
+      if (v.email.trim() !== currentEmail && !v.emailPassword)
+        ctx.addIssue({ code: 'custom', path: ['emailPassword'], message: 'Informe a senha atual para trocar o e-mail.' })
+      if (!minor) return
+      if (!v.guardianName) ctx.addIssue({ code: 'custom', path: ['guardianName'], message: 'Informe o nome do responsável.' })
+      if (!v.guardianEmail) ctx.addIssue({ code: 'custom', path: ['guardianEmail'], message: 'Informe o e-mail do responsável.' })
+      else if (v.guardianEmail.length > 254 || !EMAIL.test(v.guardianEmail))
+        ctx.addIssue({ code: 'custom', path: ['guardianEmail'], message: 'E-mail inválido. Use o formato nome@dominio.com.' })
+    })
+
+/** A signed-in reader changes the password: the current one proves it is them. */
+export const changePasswordSchema = z
+  .object({ currentPassword: z.string().min(1, 'Informe a senha atual.'), password: passwordField, confirmPassword: z.string() })
+  .superRefine(mustMatch)
+
 export const forgotPasswordSchema = z.object({ email: emailField })
 
 export const reasonSchema = z.object({

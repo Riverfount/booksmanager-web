@@ -220,7 +220,7 @@ describe('layout do leitor', () => {
       </Routes>,
     )
     const nav = screen.getByRole('navigation', { name: 'Principal' })
-    expect(within(nav).getAllByRole('link').map((l) => l.textContent)).toEqual(['Minha situação', 'Catálogo', 'Meus empréstimos', 'Minhas reservas'])
+    expect(within(nav).getAllByRole('link').map((l) => l.textContent)).toEqual(['Minha situação', 'Catálogo', 'Meus empréstimos', 'Minhas reservas', 'Meus dados'])
     expect(screen.getByText('Ana Leitora')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sair' })).toBeInTheDocument()
     expect(screen.getByText('conteúdo')).toBeInTheDocument()

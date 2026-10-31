@@ -24,6 +24,7 @@ const MyStandingPage = lazy(() => import('./pages/reader/MyStandingPage').then((
 const CatalogPage = lazy(() => import('./pages/reader/CatalogPage').then((m) => ({ default: m.CatalogPage })))
 const MyLoansPage = lazy(() => import('./pages/reader/MyLoansPage').then((m) => ({ default: m.MyLoansPage })))
 const MyReservationsPage = lazy(() => import('./pages/reader/MyReservationsPage').then((m) => ({ default: m.MyReservationsPage })))
+const MyProfilePage = lazy(() => import('./pages/reader/MyProfilePage').then((m) => ({ default: m.MyProfilePage })))
 const ConfigurationPage = lazy(() => import('./pages/ConfigurationPage').then((m) => ({ default: m.ConfigurationPage })))
 
 export function App() {
@@ -61,6 +62,7 @@ export function App() {
             <Route path="catalogo" element={<CatalogPage />} />
             <Route path="emprestimos" element={<MyLoansPage />} />
             <Route path="reservas" element={<MyReservationsPage />} />
+            <Route path="dados" element={<MyProfilePage />} />
             <Route path="*" element={<Navigate to="/meu" replace />} />
           </Route>
         </Route>

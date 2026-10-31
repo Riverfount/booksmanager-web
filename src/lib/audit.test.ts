@@ -5,8 +5,8 @@ describe('rótulos', () => {
     for (const a of actions) expect(actionLabel(a)).toMatch(/\S/)
     for (const t of targetTypes) expect(targetLabel(t)).toMatch(/\S/)
   })
-  it('lista as 28 ações e os 10 tipos de alvo da API', () => {
-    expect(actions).toHaveLength(28)
+  it('lista as 30 ações e os 10 tipos de alvo da API', () => {
+    expect(actions).toHaveLength(30)
     expect(targetTypes).toHaveLength(10)
   })
   it('exemplos', () => {

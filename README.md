@@ -55,7 +55,7 @@ O backend precisa estar no ar (`./mvnw spring-boot:run` com o Docker Compose do 
 | `/relatorios` | Empréstimos em atraso, livros mais emprestados (por período, até 366 dias) e situação do acervo; exportação em PDF e CSV só para ADMIN | todos |
 | `/multas` | Multas (pagar, abonar com justificativa) e suspensões (encerrar antes do prazo) | todos |
 | `/auditoria` | Trilha de auditoria (quem fez o quê e quando), com filtros por usuário, ação, alvo e período | ADMIN |
-| `/meu` · `/meu/catalogo` · `/meu/emprestimos` · `/meu/reservas` | Área do leitor: situação (pode emprestar? multas, suspensão, limites), catálogo com disponibilidade e reserva, empréstimos com renovação, reservas (listar, reservar e cancelar) | READER |
+| `/meu` · `/meu/catalogo` · `/meu/emprestimos` · `/meu/reservas` · `/meu/dados` | Área do leitor: situação (pode emprestar? multas, suspensão, limites), catálogo com disponibilidade e reserva, empréstimos com renovação, reservas (listar, reservar e cancelar), meus dados (telefone, e-mail, responsável do menor e troca de senha; nome, documento e nascimento só a biblioteca altera) | READER |
 | `/usuarios` | Usuários, perfil, bloqueio, redefinição de senha | ADMIN |
 | `/configuracao` | Política de penalidade (multa, suspensão, ambas ou nenhuma), prazos e limites | ADMIN |
 
