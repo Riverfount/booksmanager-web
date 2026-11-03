@@ -27,6 +27,21 @@ O backend precisa estar no ar (`./mvnw spring-boot:run` com o Docker Compose do 
 | `npm run lint` · `npm run typecheck` | ESLint e TypeScript |
 | `npm run api:types` | regera `src/api/schema.d.ts` a partir do OpenAPI do backend em `http://localhost:8080/v3/api-docs` (ou `OPENAPI_URL=...`) |
 
+### Sistema completo e usuários de teste
+
+1. Suba a API, seguindo o [README do back-end](https://github.com/Riverfount/BooksManager#5-como-executar): preencha o `.env` com os usuários de teste abaixo e rode `./mvnw spring-boot:run` (o Docker sobe o PostgreSQL).
+2. Aqui, `npm install` e `npm run dev`, e abra `http://localhost:5173/login`.
+
+Usuários de teste (descartáveis, só para desenvolvimento; a API os cria na subida, com as variáveis do `.env`):
+
+| Perfil | Login | Senha | O que vê |
+| --- | --- | --- | --- |
+| Administrador | `admin` | `Adm1n#Teste123` | Tudo, inclusive Usuários, Auditoria e Configuração |
+| Operador | `operador` | `0per@dor#Teste1` | O dia a dia: livros, leitores, empréstimos, reservas, multas e relatórios |
+| Leitor | `leitor` | `Le1tor#Teste9` | Só a área do leitor (`/meu`) |
+
+Capturas das telas, com dados fictícios: [Funcionalidades e telas](https://github.com/Riverfount/BooksManager#9-funcionalidades-e-telas), no README do back-end.
+
 ### Tipos da API
 
 `src/api/schema.d.ts` foi **escrito à mão** a partir dos DTOs do backend, porque o contrato real do SpringDoc não estava disponível quando o projeto foi montado. Com o backend no ar, rode `npm run api:types`: o arquivo é substituído pelo contrato oficial, no mesmo formato, e o `tsc` aponta qualquer divergência.
