@@ -114,7 +114,7 @@ O Nginx da imagem faz só o que é dele:
 - **`/healthz`** responde `ok` (usado pelo `HEALTHCHECK` e para orquestração);
 - não repete os cabeçalhos de segurança (HSTS, `nosniff`, `X-Frame-Options`, `Referrer-Policy`), que o proxy da frente já define.
 
-**Publicação:** ao enviar uma tag de versão (`v1.0.0`), o workflow `Publish image` roda os mesmos checks do CI, confere que a tag aponta para um commit da `main`, constrói a imagem, roda o teste de fumaça e publica em `ghcr.io/riverfount/booksmanager-web` com **duas tags**: a versão (`1.0.0`) e o hash curto do commit (`sha-1a2b3c4`). Não há `latest`: quem implanta nomeia uma versão, e o que roda é sempre conhecido. O CI constrói e testa a imagem em todo pull request, sem publicar.
+**Publicação:** ao publicar a release de uma versão (`v1.0.0`), o workflow `Publish image` roda os mesmos checks do CI, confere que a tag aponta para um commit da `main`, constrói a imagem, roda o teste de fumaça e publica em `ghcr.io/riverfount/booksmanager-web` com **duas tags**: a versão (`1.0.0`) e o hash curto do commit (`sha-1a2b3c4`). Não há `latest`: quem implanta nomeia uma versão, e o que roda é sempre conhecido. O CI constrói e testa a imagem em todo pull request, sem publicar.
 
 **Versões que andam juntas:** front e back são publicados separadamente. A ponte entre eles é o contrato OpenAPI do back; as mudanças de contrato estão na tabela de `docs/projeto.md` do back, e `npm run api:types` mostra no `tsc` o que quebrou.
 
