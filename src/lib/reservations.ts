@@ -1,15 +1,16 @@
 import type { CopyStatus } from '../api/types'
 
-// A reader's own reservation has no copy id, only the pickup deadline of the copy being held.
-type StateInput = { status: 'ACTIVE' | 'FULFILLED' | 'CANCELLED' | 'EXPIRED'; copyId?: number; pickupDeadline?: string; queuePosition?: number }
+// A reader's own reservation has no copy id, only the pickup deadline of the copy being held. The API sends null,
+// not absence, for what a queued reservation does not have.
+type StateInput = { status: 'ACTIVE' | 'FULFILLED' | 'CANCELLED' | 'EXPIRED'; copyId?: number | null; pickupDeadline?: string | null; queuePosition?: number | null }
 
 /** Label and color for a reservation: an active one either waits in the queue or holds a copy. */
 export function reservationState(r: StateInput): { label: string; color: string } {
   switch (r.status) {
     case 'ACTIVE':
-      return r.copyId !== undefined || r.pickupDeadline !== undefined
+      return r.copyId != null || r.pickupDeadline != null
         ? { label: 'Exemplar guardado', color: 'var(--color-blue)' }
-        : { label: r.queuePosition !== undefined ? `Na fila · ${r.queuePosition}º` : 'Na fila', color: 'var(--color-yellow)' }
+        : { label: r.queuePosition != null ? `Na fila · ${r.queuePosition}º` : 'Na fila', color: 'var(--color-yellow)' }
     case 'FULFILLED': return { label: 'Retirada', color: 'var(--color-green)' }
     case 'CANCELLED': return { label: 'Cancelada', color: 'var(--color-muted)' }
     case 'EXPIRED': return { label: 'Expirada', color: 'var(--color-red)' }
