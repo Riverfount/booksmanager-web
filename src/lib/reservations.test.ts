@@ -11,6 +11,11 @@ describe('reservationState', () => {
     expect(reservationState({ status: 'ACTIVE', pickupDeadline: '2026-11-05' }).label).toBe('Exemplar guardado')
     expect(reservationState({ status: 'ACTIVE', queuePosition: 1 }).label).toBe('Na fila · 1º')
   })
+  it('a API manda null no exemplar e no prazo da reserva que só espera na fila', () => {
+    expect(reservationState({ status: 'ACTIVE', copyId: null, pickupDeadline: null, queuePosition: 1 }).label).toBe('Na fila · 1º')
+    expect(reservationState({ status: 'ACTIVE', copyId: null, pickupDeadline: null }).label).toBe('Na fila')
+    expect(reservationState({ status: 'ACTIVE', copyId: null, pickupDeadline: '2026-11-05' }).label).toBe('Exemplar guardado')
+  })
   it('situações encerradas', () => {
     expect(reservationState({ status: 'FULFILLED' }).label).toBe('Retirada')
     expect(reservationState({ status: 'CANCELLED' }).label).toBe('Cancelada')
