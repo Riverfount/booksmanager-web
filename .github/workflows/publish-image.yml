@@ -1,11 +1,12 @@
 name: Publish image
 
-# Issue #53: publishes the container image of the front-end to the GitHub Container Registry (ghcr.io) when a version tag
-# (v*) is pushed, the same way the back-end does. Nothing is published from a branch or a pull request, and the image is
-# never published from a build that failed or from an image that does not pass the smoke test.
+# Issue #53: publishes the container image of the front-end to the GitHub Container Registry (ghcr.io) when a release is
+# published on GitHub, the same way the back-end does (creating a release for a new tag also creates the tag). Pushing a
+# tag alone, a draft release, a branch or a pull request publishes nothing, and the image is never published from a
+# build that failed or from an image that does not pass the smoke test.
 on:
-  push:
-    tags: ['v*']
+  release:
+    types: [published]
 
 permissions:
   contents: read
@@ -38,7 +39,7 @@ jobs:
       contents: read
       packages: write
     env:
-      TAG_NAME: ${{ github.ref_name }}
+      TAG_NAME: ${{ github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v4
         with:

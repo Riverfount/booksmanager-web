@@ -128,11 +128,11 @@ O front não sobe sozinho: ele é um serviço (`web`) da pilha de produção do 
 
 ```bash
 git switch main && git pull
-git tag v1.0.0            # ou v1.0.0-rc.1 para uma pré-versão
-git push origin v1.0.0
+gh release create v1.0.0 --target main --title "Books Manager Web 1.0.0" --notes-file notas.md
+# pré-versão: gh release create v1.0.0-rc.1 --target main --prerelease --title ... --notes-file ...
 ```
 
-A tag precisa ter o formato `v1.2.3` ou `v1.2.3-rc.1` e apontar para um commit que está na `main`; qualquer outra coisa faz o workflow `Publish image` falhar logo no início. Acompanhe em *Actions → Publish image*. Ele roda lint, tipos, testes e build, constrói a imagem, roda o teste de fumaça, faz um scan com o Trivy (só avisa, não bloqueia) e publica `ghcr.io/riverfount/booksmanager-web:1.0.0` e `:sha-<7 letras>`. Não reaproveite uma versão já publicada (o workflow não impede, e quem já puxou a antiga ficaria com outra imagem sob o mesmo nome): se saiu errada, publique a seguinte.
+A imagem é publicada quando a **release** é publicada (criar a release de uma versão nova cria a tag junto); enviar só a tag ou salvar um rascunho não publica nada. A tag da release precisa ter o formato `v1.2.3` ou `v1.2.3-rc.1` e apontar para um commit que está na `main`; qualquer outra coisa faz o workflow `Publish image` falhar logo no início. Acompanhe em *Actions → Publish image*. Ele roda lint, tipos, testes e build, constrói a imagem, roda o teste de fumaça, faz um scan com o Trivy (só avisa, não bloqueia) e publica `ghcr.io/riverfount/booksmanager-web:1.0.0` e `:sha-<7 letras>`. Não reaproveite uma versão já publicada (o workflow não impede, e quem já puxou a antiga ficaria com outra imagem sob o mesmo nome): se saiu errada, publique a seguinte.
 
 > Na **primeira** publicação, o pacote nasce privado. Em *Packages → booksmanager-web → Package settings → Change visibility*, deixe-o **público**; do contrário, o servidor precisa de `docker login ghcr.io` com um token que tenha `read:packages`.
 
