@@ -4,6 +4,17 @@ Interface web do [Books Manager](https://github.com/Riverfount/BooksManager), o 
 
 Em português do Brasil, responsivo (menu hambúrguer no celular) e no tema de cores Gruvbox.
 
+**Versão atual:** 1.1.0 (veja o [histórico de versões](#histórico-de-versões)).
+
+## Histórico de versões
+
+| Versão | Data | O que mudou |
+|---|---|---|
+| 1.1.0 | 25/11/2026 (prevista) | Manutenção: chamado #70 (este histórico). Os demais chamados da versão estão no [quadro do projeto](https://github.com/users/Riverfount/projects/5). |
+| 1.0.0 | 07/11/2026 | Primeira versão: telas da operação, da administração e da área do leitor, com autenticação por refresh token em cookie e implantação com Nginx em contêiner. |
+
+Cada versão tem uma release no GitHub, com as notas completas. A versão do front acompanha a do [back-end](https://github.com/Riverfount/BooksManager).
+
 ## Stack
 
 Vite · React 19 · TypeScript · Tailwind CSS 4 · React Router (modo declarativo) · TanStack Query · openapi-typescript + openapi-fetch · React Hook Form + Zod · Vitest + React Testing Library.
