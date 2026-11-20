@@ -5,14 +5,15 @@ describe('rótulos', () => {
     for (const a of actions) expect(actionLabel(a)).toMatch(/\S/)
     for (const t of targetTypes) expect(targetLabel(t)).toMatch(/\S/)
   })
-  it('lista as 32 ações e os 10 tipos de alvo da API', () => {
-    expect(actions).toHaveLength(32)
+  it('lista as 33 ações e os 10 tipos de alvo da API', () => {
+    expect(actions).toHaveLength(33)
     expect(targetTypes).toHaveLength(10)
   })
   it('exemplos', () => {
     expect(actionLabel('LOGIN_FAILURE')).toBe('Login recusado')
     expect(actionLabel('FINE_WAIVED')).toBe('Multa abonada')
     expect(actionLabel('USER_REACTIVATED')).toBe('Usuário reativado')
+    expect(actionLabel('READER_REACTIVATED')).toBe('Leitor reativado')
     expect(actionLabel('USER_PASSWORD_CHANGED')).toBe('Senha trocada pelo usuário')
     expect(targetLabel('BOOK')).toBe('Livro')
   })

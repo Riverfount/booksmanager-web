@@ -216,6 +216,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/readers/{id}/reactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reativar leitor
+         * @description Reativa um leitor inativado, só para administrador: ele volta à listagem padrão e a poder fazer empréstimos e reservas (RN11), se não estiver bloqueado, suspenso ou com pendências. O bloqueio não muda (um leitor que estava bloqueado volta bloqueado; use o desbloqueio) e o acesso ao sistema, revogado na inativação, não volta: é reaberto por um novo convite. Reativar quem já está ativo devolve 200 sem efeito. A reativação fica registrada na auditoria.
+         */
+        post: operations["reactivate_1"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/readers/{id}/block": {
         parameters: {
             query?: never;
@@ -481,7 +501,7 @@ export interface paths {
          * Reativar exemplar
          * @description Reativa um exemplar inativado (RN14), só para o administrador, mantendo o status que ele tinha. Só é possível se o livro do exemplar está ativo (422 se não). Reativar um exemplar já ativo não tem efeito e devolve o exemplar.
          */
-        post: operations["reactivate_1"];
+        post: operations["reactivate_2"];
         delete?: never;
         options?: never;
         head?: never;
@@ -525,7 +545,7 @@ export interface paths {
          * Reativar categoria
          * @description Reativa uma categoria inativada (RN14), só para o administrador. Reativar uma categoria já ativa não tem efeito e devolve a categoria.
          */
-        post: operations["reactivate_2"];
+        post: operations["reactivate_3"];
         delete?: never;
         options?: never;
         head?: never;
@@ -569,7 +589,7 @@ export interface paths {
          * Reativar livro
          * @description Reativa um livro inativado (RN14), só para o administrador. O livro só volta se a categoria e todos os autores dele estão ativos; a recusa (422) diz quais estão inativos. Os exemplares não são alterados. Reativar um livro já ativo não tem efeito e devolve o livro.
          */
-        post: operations["reactivate_3"];
+        post: operations["reactivate_4"];
         delete?: never;
         options?: never;
         head?: never;
@@ -613,7 +633,7 @@ export interface paths {
          * Reativar autor
          * @description Reativa um autor inativado (RN14), só para o administrador. Se outro autor ativo já tem o mesmo nome (sem diferenciar maiúsculas), a reativação é recusada com 422 e o `existingAuthorId`, como o cadastro (RN19); para confirmar o homônimo, envie o corpo opcional `{"allowDuplicate": true}`. Reativar um autor já ativo não tem efeito e devolve o autor.
          */
-        post: operations["reactivate_4"];
+        post: operations["reactivate_5"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3848,7 +3868,7 @@ export interface components {
              * @example FINE_WAIVED
              * @enum {string}
              */
-            action: "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGIN_LOCKOUT" | "USER_CREATED" | "USER_UPDATED" | "USER_DEACTIVATED" | "USER_UNBLOCKED" | "USER_PASSWORD_RESET" | "READER_BLOCKED" | "READER_UNBLOCKED" | "READER_DEACTIVATED" | "FINE_PAID" | "FINE_WAIVED" | "SUSPENSION_ENDED" | "LIBRARY_CONFIGURATION_UPDATED" | "BOOK_DEACTIVATED" | "BOOK_REACTIVATED" | "AUTHOR_DEACTIVATED" | "AUTHOR_REACTIVATED" | "CATEGORY_DEACTIVATED" | "CATEGORY_REACTIVATED" | "COPY_DEACTIVATED" | "COPY_REACTIVATED" | "READER_ACCESS_INVITED" | "READER_ACCESS_GRANTED" | "READER_ACCESS_REVOKED" | "READER_PASSWORD_RESET" | "RESERVATION_CANCELLED" | "READER_PROFILE_UPDATED" | "READER_PASSWORD_CHANGED" | "USER_REACTIVATED" | "USER_PASSWORD_CHANGED";
+            action: "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGIN_LOCKOUT" | "USER_CREATED" | "USER_UPDATED" | "USER_DEACTIVATED" | "USER_UNBLOCKED" | "USER_PASSWORD_RESET" | "READER_BLOCKED" | "READER_UNBLOCKED" | "READER_DEACTIVATED" | "FINE_PAID" | "FINE_WAIVED" | "SUSPENSION_ENDED" | "LIBRARY_CONFIGURATION_UPDATED" | "BOOK_DEACTIVATED" | "BOOK_REACTIVATED" | "AUTHOR_DEACTIVATED" | "AUTHOR_REACTIVATED" | "CATEGORY_DEACTIVATED" | "CATEGORY_REACTIVATED" | "COPY_DEACTIVATED" | "COPY_REACTIVATED" | "READER_ACCESS_INVITED" | "READER_ACCESS_GRANTED" | "READER_ACCESS_REVOKED" | "READER_PASSWORD_RESET" | "RESERVATION_CANCELLED" | "READER_PROFILE_UPDATED" | "READER_PASSWORD_CHANGED" | "USER_REACTIVATED" | "USER_PASSWORD_CHANGED" | "READER_REACTIVATED";
             /**
              * @description O tipo do alvo da operação; nulo quando ela não tem alvo (um login falho de um usuário desconhecido)
              * @example FINE
@@ -4716,6 +4736,55 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Não autenticado: token ausente, expirado ou inválido */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Sem permissão: o perfil do token não pode chamar esta rota */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Leitor não encontrado */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    reactivate_1: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Leitor reativado (ou já estava ativo) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ReaderResponse"];
+                };
             };
             /** @description Não autenticado: token ausente, expirado ou inválido */
             401: {
@@ -5793,7 +5862,7 @@ export interface operations {
             };
         };
     };
-    reactivate_1: {
+    reactivate_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -5975,7 +6044,7 @@ export interface operations {
             };
         };
     };
-    reactivate_2: {
+    reactivate_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -6163,7 +6232,7 @@ export interface operations {
             };
         };
     };
-    reactivate_3: {
+    reactivate_4: {
         parameters: {
             query?: never;
             header?: never;
@@ -6363,7 +6432,7 @@ export interface operations {
             };
         };
     };
-    reactivate_4: {
+    reactivate_5: {
         parameters: {
             query?: never;
             header?: never;
@@ -9325,7 +9394,7 @@ export interface operations {
                  */
                 actorId?: number;
                 /** @description A operação registrada */
-                action?: "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGIN_LOCKOUT" | "USER_CREATED" | "USER_UPDATED" | "USER_DEACTIVATED" | "USER_UNBLOCKED" | "USER_PASSWORD_RESET" | "READER_BLOCKED" | "READER_UNBLOCKED" | "READER_DEACTIVATED" | "FINE_PAID" | "FINE_WAIVED" | "SUSPENSION_ENDED" | "LIBRARY_CONFIGURATION_UPDATED" | "BOOK_DEACTIVATED" | "BOOK_REACTIVATED" | "AUTHOR_DEACTIVATED" | "AUTHOR_REACTIVATED" | "CATEGORY_DEACTIVATED" | "CATEGORY_REACTIVATED" | "COPY_DEACTIVATED" | "COPY_REACTIVATED" | "READER_ACCESS_INVITED" | "READER_ACCESS_GRANTED" | "READER_ACCESS_REVOKED" | "READER_PASSWORD_RESET" | "RESERVATION_CANCELLED" | "READER_PROFILE_UPDATED" | "READER_PASSWORD_CHANGED" | "USER_REACTIVATED" | "USER_PASSWORD_CHANGED";
+                action?: "LOGIN_SUCCESS" | "LOGIN_FAILURE" | "LOGIN_LOCKOUT" | "USER_CREATED" | "USER_UPDATED" | "USER_DEACTIVATED" | "USER_UNBLOCKED" | "USER_PASSWORD_RESET" | "READER_BLOCKED" | "READER_UNBLOCKED" | "READER_DEACTIVATED" | "FINE_PAID" | "FINE_WAIVED" | "SUSPENSION_ENDED" | "LIBRARY_CONFIGURATION_UPDATED" | "BOOK_DEACTIVATED" | "BOOK_REACTIVATED" | "AUTHOR_DEACTIVATED" | "AUTHOR_REACTIVATED" | "CATEGORY_DEACTIVATED" | "CATEGORY_REACTIVATED" | "COPY_DEACTIVATED" | "COPY_REACTIVATED" | "READER_ACCESS_INVITED" | "READER_ACCESS_GRANTED" | "READER_ACCESS_REVOKED" | "READER_PASSWORD_RESET" | "RESERVATION_CANCELLED" | "READER_PROFILE_UPDATED" | "READER_PASSWORD_CHANGED" | "USER_REACTIVATED" | "USER_PASSWORD_CHANGED" | "READER_REACTIVATED";
                 /** @description O tipo do alvo da operação */
                 targetType?: "USER" | "READER" | "FINE" | "SUSPENSION" | "LIBRARY_CONFIGURATION" | "BOOK" | "AUTHOR" | "CATEGORY" | "COPY" | "RESERVATION";
                 /**

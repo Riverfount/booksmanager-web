@@ -57,7 +57,7 @@ describe('textos do diálogo de inativação', () => {
     expect(dialog).toHaveTextContent(/Só um administrador pode reativar a categoria\./)
   })
 
-  it('leitor: não promete bloqueio por empréstimo, avisa do acesso e que não há reativação', async () => {
+  it('leitor: não promete bloqueio por empréstimo, avisa do acesso e diz quem reativa', async () => {
     mockApi({
       'GET /api/v1/readers': () => ({
         json: pageOf([{ id: 9, name: 'Ana Leitora', maskedDocument: '***.456.789-**', email: 'ana@example.com', active: true, blocked: false }]),
@@ -67,6 +67,8 @@ describe('textos do diálogo de inativação', () => {
     const dialog = await openDialog('Ana Leitora')
     expect(dialog).not.toHaveTextContent(/não podem ser inativados/)
     expect(dialog).toHaveTextContent(/perde o acesso ao sistema/)
-    expect(dialog).toHaveTextContent(/Não é possível reativar um leitor\./)
+    expect(dialog).not.toHaveTextContent(/Não é possível reativar/)
+    expect(dialog).toHaveTextContent(/Só um administrador pode reativar o leitor\./)
+    expect(dialog).toHaveTextContent(/acesso ao sistema só volta com um novo convite/)
   })
 })

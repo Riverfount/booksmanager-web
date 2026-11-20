@@ -15,6 +15,7 @@ const actionLabels: Record<AuditAction, string> = {
   READER_BLOCKED: 'Leitor bloqueado',
   READER_UNBLOCKED: 'Leitor desbloqueado',
   READER_DEACTIVATED: 'Leitor inativado',
+  READER_REACTIVATED: 'Leitor reativado',
   FINE_PAID: 'Multa paga',
   FINE_WAIVED: 'Multa abonada',
   SUSPENSION_ENDED: 'Suspensão encerrada',

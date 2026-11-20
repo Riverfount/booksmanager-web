@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router'
 import { api, call, errorMessage } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 import { FinesList, SuspensionsList } from '../components/Penalties'
 import { LoanStatusBadge } from '../components/loanStatus'
 import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, PageHeader, Spinner } from '../components/ui'
@@ -12,6 +13,12 @@ export function ReaderDetailPage() {
   const reader = useQuery({ queryKey: ['reader', id], queryFn: () => call(api.GET('/api/v1/readers/{id}', { params: { path: { id } } })) })
   const loans = useQuery({ queryKey: ['loans', 'reader', id], queryFn: () => call(api.GET('/api/v1/loans', { params: { query: { readerId: id, size: 20 } } })) })
   const r = reader.data
+  const qc = useQueryClient()
+  const { isAdmin } = useAuth()
+  const reactivate = useMutation({
+    mutationFn: () => call(api.POST('/api/v1/readers/{id}/reactivate', { params: { path: { id } } })),
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: ['reader', id] }), qc.invalidateQueries({ queryKey: ['readers'] })]),
+  })
 
   return (
     <>
@@ -20,10 +27,12 @@ export function ReaderDetailPage() {
       {reader.isError && <Banner kind="error">{errorMessage(reader.error)}</Banner>}
       {r && (
         <Card>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Badge color={r.active ? 'var(--color-green)' : 'var(--color-muted)'}>{r.active ? 'Ativo' : 'Inativo'}</Badge>
             {r.blocked && <Badge color="var(--color-red)">Bloqueado</Badge>}
+            {!r.active && isAdmin && <Button small disabled={reactivate.isPending} onClick={() => reactivate.mutate()}>Reativar leitor</Button>}
           </div>
+          {reactivate.isError && <Banner kind="error">{errorMessage(reactivate.error)}</Banner>}
           <dl className="m-0 grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-x-6 gap-y-3 text-sm">
             <Info label="Documento" value={r.document} mono />
             <Info label="E-mail" value={r.email} />

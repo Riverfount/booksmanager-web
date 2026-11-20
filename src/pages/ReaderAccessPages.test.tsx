@@ -8,6 +8,9 @@ import { ReaderDetailPage } from './ReaderDetailPage'
 import { ResetPasswordPage } from './ResetPasswordPage'
 import { mockApi, pageOf } from '../test/mockApi'
 
+const auth = vi.hoisted(() => ({ isAdmin: true }))
+vi.mock('../auth/AuthContext', () => ({ useAuth: () => auth }))
+
 const strong = 'Abcdef1!'
 const renderAt = (path: string, route: string, element: React.ReactElement) =>
   render(
@@ -21,7 +24,10 @@ const renderAt = (path: string, route: string, element: React.ReactElement) =>
     </QueryClientProvider>,
   )
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  auth.isAdmin = true
+})
 
 describe('convite de acesso', () => {
   const open = () => renderAt('/convite?token=tok-123', '/convite', <AcceptInvitationPage />)
@@ -152,5 +158,50 @@ describe('acesso do leitor no detalhe', () => {
     const dialog = await screen.findByRole('dialog')
     await userEvent.click(within(dialog).getByRole('button', { name: 'Revogar acesso' }))
     expect(await screen.findByText(/Acesso revogado/)).toBeInTheDocument()
+  })
+})
+
+describe('reativação do leitor no detalhe', () => {
+  const inactive = { id: 5, name: 'Ana', document: '123', email: 'ana@exemplo.com', birthDate: '1990-01-01', active: false, blocked: false }
+  const open = () => renderAt('/leitores/5', '/leitores/:id', <ReaderDetailPage />)
+
+  it('administrador reativa o leitor inativo e a tela passa a mostrá-lo ativo', async () => {
+    let active = false
+    const calls = mockApi({
+      'GET /api/v1/readers/5': () => ({ json: { ...inactive, active } }),
+      'GET /api/v1/loans': () => ({ json: pageOf([]) }),
+      'POST /api/v1/readers/5/reactivate': () => { active = true; return { json: { ...inactive, active } } },
+    })
+    open()
+    await userEvent.click(await screen.findByRole('button', { name: 'Reativar leitor' }))
+    expect(await screen.findByText('Ativo')).toBeInTheDocument()
+    expect(calls.some((c) => c.key === 'POST /api/v1/readers/5/reactivate')).toBe(true)
+    expect(screen.queryByRole('button', { name: 'Reativar leitor' })).not.toBeInTheDocument()
+  })
+
+  it('mostra a recusa da API', async () => {
+    mockApi({
+      'GET /api/v1/readers/5': () => ({ json: inactive }),
+      'GET /api/v1/loans': () => ({ json: pageOf([]) }),
+      'POST /api/v1/readers/5/reactivate': () => ({ status: 404, json: { detail: 'leitor não encontrado: 5' } }),
+    })
+    open()
+    await userEvent.click(await screen.findByRole('button', { name: 'Reativar leitor' }))
+    expect(await screen.findByText('leitor não encontrado: 5')).toBeInTheDocument()
+  })
+
+  it('operador não vê o botão, e leitor ativo também não', async () => {
+    auth.isAdmin = false
+    mockApi({ 'GET /api/v1/readers/5': () => ({ json: inactive }), 'GET /api/v1/loans': () => ({ json: pageOf([]) }) })
+    open()
+    expect(await screen.findByText('Inativo')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reativar leitor' })).not.toBeInTheDocument()
+  })
+
+  it('leitor ativo não tem o botão', async () => {
+    mockApi({ 'GET /api/v1/readers/5': () => ({ json: { ...inactive, active: true } }), 'GET /api/v1/loans': () => ({ json: pageOf([]) }) })
+    open()
+    expect(await screen.findByText('Ativo')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Reativar leitor' })).not.toBeInTheDocument()
   })
 })

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router'
 import type { z } from 'zod'
 import { api, call, errorMessage } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
 import type { Reader, ReaderSummary } from '../api/types'
 import { Icon } from '../components/Icon'
 import { Badge, Banner, Button, Card, DataTable, Dialog, EmptyState, ErrorSummary, FormCard, IconButton, PageHeader, Pagination, Pills, RequiredNote, SearchInput, Spinner, TextField } from '../components/ui'
@@ -25,6 +26,7 @@ const situation = (r: ReaderSummary) =>
 
 export function ReadersPage() {
   const qc = useQueryClient()
+  const { isAdmin } = useAuth()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Filter>('active')
   const [page, setPage] = useState(0)
@@ -61,6 +63,10 @@ export function ReadersPage() {
     mutationFn: (id: number) => call(api.DELETE('/api/v1/readers/{id}', { params: { path: { id } } })),
     onSuccess: () => { setRemoving(null); void refresh() },
   })
+  const reactivate = useMutation({
+    mutationFn: (id: number) => call(api.POST('/api/v1/readers/{id}/reactivate', { params: { path: { id } } })),
+    onSuccess: refresh,
+  })
   const toggleBlock = useMutation({
     mutationFn: (r: ReaderSummary) =>
       call(r.blocked
@@ -83,7 +89,7 @@ export function ReadersPage() {
   const phoneField = register('phone', { onChange: (e) => setValue('phone', maskPhone(e.target.value)) })
   const gPhoneField = register('guardianPhone', { onChange: (e) => setValue('guardianPhone', maskPhone(e.target.value)) })
   const star = guardianRequired ? <span aria-hidden="true" className="text-orange"> *</span> : null
-  const actionError = toggleBlock.error ?? inactivate.error ?? loadForEdit.error
+  const actionError = toggleBlock.error ?? inactivate.error ?? loadForEdit.error ?? reactivate.error
 
   return (
     <>
@@ -108,12 +114,14 @@ export function ReadersPage() {
                     header: 'Ações',
                     width: '1.5fr',
                     label: false,
-                    cell: (r) => r.active && (
+                    cell: (r) => r.active ? (
                       <div className="flex gap-1">
                         <IconButton label={`Editar ${r.name}`} onClick={() => loadForEdit.mutate(r.id)}><Icon name="edit" size={18} /></IconButton>
                         <IconButton label={r.blocked ? `Desbloquear ${r.name}` : `Bloquear ${r.name}`} onClick={() => toggleBlock.mutate(r)} style={{ color: 'var(--color-yellow)' }}><Icon name="lock" size={18} /></IconButton>
                         <IconButton label={`Inativar ${r.name}`} onClick={() => setRemoving(r)} style={{ color: 'var(--color-orange)' }}><Icon name="ban" size={18} /></IconButton>
                       </div>
+                    ) : isAdmin && (
+                      <Button small disabled={reactivate.isPending} onClick={() => reactivate.mutate(r.id)}>Reativar<span className="sr-only"> {r.name}</span></Button>
                     ),
                   },
                 ]}
@@ -153,7 +161,7 @@ export function ReadersPage() {
 
       {removing && (
         <Dialog title="Inativar leitor" onClose={() => setRemoving(null)}>
-          <p className="m-0 text-sm text-fg2">{removing.name} deixa de poder pegar livros e perde o acesso ao sistema; o histórico é mantido. Não é possível reativar um leitor.</p>
+          <p className="m-0 text-sm text-fg2">{removing.name} deixa de poder pegar livros e perde o acesso ao sistema; o histórico é mantido. Só um administrador pode reativar o leitor. O acesso ao sistema só volta com um novo convite.</p>
           {inactivate.isError && <Banner kind="error">{errorMessage(inactivate.error)}</Banner>}
           <div className="flex justify-end gap-3">
             <Button onClick={() => setRemoving(null)}>Cancelar</Button>
