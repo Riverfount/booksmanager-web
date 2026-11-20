@@ -10,7 +10,7 @@ Em português do Brasil, responsivo (menu hambúrguer no celular) e no tema de c
 
 | Versão | Data | O que mudou |
 |---|---|---|
-| 1.1.0 | 25/11/2026 (prevista) | Manutenção: chamados #70 (este histórico), #72 (botão Reativar para leitor inativo) e #74 (auditoria mostrava "#null" no alvo sem id). Os demais chamados da versão estão no [quadro do projeto](https://github.com/users/Riverfount/projects/5). |
+| 1.1.0 | 20/11/2026 | Manutenção, com chamados no GitHub. **Corretiva:** #74 (a auditoria mostrava "#null" no alvo sem id). **Perfectiva:** #72 (botão Reativar para leitor inativo, na lista e no detalhe, e rótulo "Leitor reativado" na auditoria). **Preventiva:** #70 (este histórico) e #76 (fechamento da linha). Os chamados do [back-end](https://github.com/Riverfount/BooksManager) da mesma versão estão no histórico dele. |
 | 1.0.0 | 07/11/2026 | Primeira versão: telas da operação, da administração e da área do leitor, com autenticação por refresh token em cookie e implantação com Nginx em contêiner. |
 
 Cada versão tem uma release no GitHub, com as notas completas. A versão do front acompanha a do [back-end](https://github.com/Riverfount/BooksManager).
