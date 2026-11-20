@@ -18,7 +18,7 @@ const entries = [
   { id: 3, occurredAt: '2026-11-02T13:30:00Z', actorId: 1, actorLogin: 'maria', action: 'FINE_WAIVED', targetType: 'FINE', targetId: 12, summary: 'Abono: leitor sem condições de pagar' },
   { id: 2, occurredAt: '2026-11-01T10:00:00Z', action: 'LOGIN_FAILURE', summary: 'Login desconhecido' },
   { id: 1, occurredAt: '2026-10-31T09:00:00Z', actorId: 1, actorLogin: 'maria', action: 'READER_BLOCKED', targetType: 'READER', targetId: 5 },
-  { id: 0, occurredAt: '2026-10-30T09:00:00Z', actorId: 1, actorLogin: 'maria', action: 'LIBRARY_CONFIGURATION_UPDATED', targetType: 'LIBRARY_CONFIGURATION' },
+  { id: 0, occurredAt: '2026-10-30T09:00:00Z', actorId: 1, actorLogin: 'maria', action: 'LIBRARY_CONFIGURATION_UPDATED', targetType: 'LIBRARY_CONFIGURATION', targetId: null }, // the API sends null, not a missing field
 ]
 const routes = {
   'GET /api/v1/audit-log': () => ({ json: pageOf(entries) }),
@@ -49,6 +49,7 @@ describe('auditoria', () => {
     renderPage()
     expect(await screen.findByRole('link', { name: 'Leitor #5' })).toHaveAttribute('href', '/leitores/5')
     expect(screen.getByText('Configuração da biblioteca', { selector: 'span' })).toBeInTheDocument()
+    expect(screen.queryByText(/#null/)).not.toBeInTheDocument()
   })
 
   it('combina os filtros na consulta', async () => {
