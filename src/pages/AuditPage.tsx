@@ -90,6 +90,6 @@ export function AuditPage() {
 
 function Target({ entry }: { entry: AuditEntry }) {
   if (!entry.targetType) return <span className="text-muted">—</span>
-  const text = `${targetLabel(entry.targetType)}${entry.targetId !== undefined ? ` #${entry.targetId}` : ''}`
-  return entry.targetType === 'READER' && entry.targetId !== undefined ? <Link to={`/leitores/${entry.targetId}`}>{text}</Link> : <span>{text}</span>
+  const text = `${targetLabel(entry.targetType)}${entry.targetId != null ? ` #${entry.targetId}` : ''}`
+  return entry.targetType === 'READER' && entry.targetId != null ? <Link to={`/leitores/${entry.targetId}`}>{text}</Link> : <span>{text}</span>
 }
